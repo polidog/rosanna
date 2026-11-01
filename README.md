@@ -605,7 +605,7 @@ One route is outside this protection: `/_defer/{name}` (see [Security notes](#se
 
 ### Worker mode
 
-A host that serves several requests from one process, such as FrankenPHP or RoadRunner, **must call `RequestLifecycle::reset()` between requests.** Otherwise the previous visitor's Memory and Snapshot state, the render scope and the instance counters remain for the next request.
+A host that serves several requests from one process, such as FrankenPHP or RoadRunner, **must call `RequestLifecycle::reset()` between requests.** Otherwise the previous visitor's Memory and Snapshot state, the render scope and the instance counters remain for the next request, and the next visitor can enter the previous visitor's session. `reset()` writes and closes the session and releases its ID; the next start uses the ID in `$_COOKIE`. If your host calls `session_start()` itself after `reset()`, pass that ID with `session_id()` first.
 
 <!-- readme-test: worker -->
 ```php
@@ -645,7 +645,7 @@ while (frankenphp_handle_request($handle)) {
 }
 ```
 
-A `Rosanna` instance can be reused across requests; it keeps no per-request information. Closing the session is up to the host.
+A `Rosanna` instance can be reused across requests; it keeps no per-request information.
 
 ### Do not render after output
 
@@ -839,7 +839,7 @@ Signatures, CSRF and URL filtering guarantee how values travel. The following is
 php -r 'echo bin2hex(random_bytes(32));'
 ```
 
-Generate it once and read it from your configuration. **Use the same value across requests and servers.** Changing it invalidates all valid snapshots and forms. Do not commit it.
+Generate it once and read it from your configuration. **Use the same value across requests and servers.** Changing it invalidates all valid snapshots and forms. Do not commit it. A key shorter than 16 bytes throws `InvalidArgumentException`: signatures appear in the HTML, so a short key can be brute-forced offline. Only the length is checked, so use a random value like the one above.
 
 ### Signatures and CSRF
 
