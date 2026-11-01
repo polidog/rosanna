@@ -570,6 +570,7 @@ final class RequestLifecycle
   (分割設計「Relayer が現在…」)。`rootId` は action の `componentId` がないときの送信先になる (`Renderer.php:633`)。Renderer は描画時のバージョンを action の JSON に入れる (02 の VR-1)。
 - **RT-9.6** `RequestLifecycle::reset()` は `ComponentState` のインスタンス、Storage、描画パス、スコープをすべて消す。Relayer の `endRequest()` はこれに置き換える
   (`relayer/src/Relayer.php:142-144`)。worker モードで別の訪問者に状態が漏れないようにするため。
+  セッションも書き込んで閉じ、ID を手放す。PHP は閉じた後も ID を覚えていて次の `session_start()` で Cookie より優先するので、閉じるだけでは次の訪問者が前のセッションに入る。次の開始では `$_COOKIE` の ID を使う。host が `session_id()` で決めた ID は変えない。
 
 **エラー:** スコープの外で `RenderContext::scope()` を呼んだら `LogicException`。生成コードはスコープの中で動くことを前提にする。
 

@@ -134,7 +134,7 @@ final class Rosanna
         return $this;
     }
 
-    /** @throws \InvalidArgumentException 鍵が空のとき (SN-4) */
+    /** @throws \InvalidArgumentException 鍵が短いとき (SN-4) */
     public function setSnapshotSecret(#[\SensitiveParameter] string $secretKey): self
     {
         $this->snapshotSerializer = new SnapshotSerializer($secretKey);

@@ -605,7 +605,7 @@ echo RenderContext::run($app->scope($request), fn(): string => $app->renderEleme
 
 ### worker モード
 
-FrankenPHP や RoadRunner のように 1 つのプロセスで複数のリクエストを処理する host は、**リクエストの間で `RequestLifecycle::reset()` を呼んでください。** 呼ばないと、前の訪問者の Memory と Snapshot の状態、描画スコープ、インスタンスの連番が次のリクエストに残ります。
+FrankenPHP や RoadRunner のように 1 つのプロセスで複数のリクエストを処理する host は、**リクエストの間で `RequestLifecycle::reset()` を呼んでください。** 呼ばないと、前の訪問者の Memory と Snapshot の状態、描画スコープ、インスタンスの連番が次のリクエストに残り、次の訪問者が前の訪問者のセッションに入ることがあります。`reset()` はセッションを書き込んで閉じ、ID を手放します。次の開始では `$_COOKIE` の ID を使います。`reset()` の後に host が自分で `session_start()` を呼ぶときは、先に `session_id()` でその ID を渡してください。
 
 <!-- readme-test: worker -->
 ```php
@@ -645,7 +645,7 @@ while (frankenphp_handle_request($handle)) {
 }
 ```
 
-`Rosanna` のインスタンスはリクエストをまたいで使えます。リクエストごとの情報を持ちません。セッションの閉じ方は host の役割です。
+`Rosanna` のインスタンスはリクエストをまたいで使えます。リクエストごとの情報を持ちません。
 
 ### 出力の後に描画しない
 
@@ -839,7 +839,7 @@ vendor/bin/rosanna help
 php -r 'echo bin2hex(random_bytes(32));'
 ```
 
-一度だけ生成して設定から読みます。**リクエストとサーバーの間で同じ値にしてください。** 変えると有効なスナップショットとフォームがすべて無効になります。git にコミットしないでください。
+一度だけ生成して設定から読みます。**リクエストとサーバーの間で同じ値にしてください。** 変えると有効なスナップショットとフォームがすべて無効になります。git にコミットしないでください。16 バイト未満の鍵は `InvalidArgumentException` になります。署名は HTML に出るので、短い鍵は手元で総当たりできるためです。確かめるのは長さだけなので、上のように乱数で作ってください。
 
 ### 署名と CSRF
 
