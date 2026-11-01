@@ -92,6 +92,8 @@ ROSANNA_SNAPSHOT_SECRET=$(php -r 'echo bin2hex(random_bytes(32));') php -S local
 
 `$setCount($count + 1)` は「足す」ではなく、描画の時点で確定した値を「その値にする」action です。クロージャはクリック時でなく描画時に実行されます。
 
+動かせるサンプルは [examples/](examples/README.ja.md) にあります。
+
 ### インスタンスの key
 
 状態はインスタンス ID に属します。ID は `FC@<ファイル名>:<開始行>#<key>` の形で、URL は含みません。
