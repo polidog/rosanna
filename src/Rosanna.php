@@ -7,12 +7,13 @@ namespace Polidog\Rosanna;
 use Polidog\Rosanna\Component\BaseComponent;
 use Polidog\Rosanna\Component\ComponentInterface;
 use Polidog\Rosanna\Component\ComponentRegistry;
-use Polidog\Rosanna\Component\Defer;
+use Polidog\Rosanna\Component\DeferredRegistry;
 use Polidog\Rosanna\Http\Request;
 use Polidog\Rosanna\Http\Response;
 use Polidog\Rosanna\Protocol\ActionHandler;
 use Polidog\Rosanna\Protocol\ActionSigner;
 use Polidog\Rosanna\Protocol\CsrfGuard;
+use Polidog\Rosanna\Protocol\DeferredEndpoint;
 use Polidog\Rosanna\Protocol\SessionSnapshots;
 use Polidog\Rosanna\Runtime\ComponentState;
 use Polidog\Rosanna\Runtime\ComponentWrapper;
@@ -35,8 +36,6 @@ use Polidog\Rosanna\Storage\NativeSession;
  */
 final class Rosanna
 {
-    private const DEFAULT_CACHE_CONTROL = 'private, max-age=0';
-
     /**
      * 外部の rosanna.js が読めないときだけ defer を 1 回取得する。フォームは通常の POST に落ちる。
      * CSP の nonce で動くよう、インラインのイベントハンドラを使わない。defer の script は DOMContentLoaded の前に動くので、
@@ -71,8 +70,7 @@ final class Rosanna
 
     private string $deferPrefix = Renderer::DEFAULT_DEFER_PREFIX;
 
-    /** @var array<string, array{component: string, cacheControl: ?string}> */
-    private array $deferred = [];
+    private DeferredRegistry $deferred;
 
     /**
      * replay の間だけ、描画に渡された Element を集める。finally で必ず戻すのでリクエストをまたがない (HD-6)。
@@ -85,6 +83,7 @@ final class Rosanna
     {
         $this->registry = new ComponentRegistry();
         $this->psx = new PsxRenderer();
+        $this->deferred = new DeferredRegistry();
     }
 
     /**
@@ -100,7 +99,7 @@ final class Rosanna
         $defer = $this->registry->getDefer($className::getComponentName());
         if ($defer !== null) {
             $this->psx->register($className, static fn(array $props): Element => $defer->buildPlaceholder($props));
-            $this->registerDeferredIfNew($defer->name, $className, $defer->cacheControl);
+            $this->deferred->registerIfNew($defer->name, $className, $defer->cacheControl);
         }
 
         return $this;
@@ -121,7 +120,7 @@ final class Rosanna
     public function loadComponentManifest(string $path): self
     {
         foreach ($this->psx->loadManifest($path) as $name => $entry) {
-            $this->registerDeferredIfNew((string) $name, $entry['component'], $entry['cacheControl']);
+            $this->deferred->registerIfNew((string) $name, $entry['component'], $entry['cacheControl']);
         }
 
         return $this;
@@ -152,7 +151,7 @@ final class Rosanna
     /** setSnapshotSecret や registerDeferred が後から呼ばれるのでキャッシュしない */
     public function signer(): ActionSigner
     {
-        return new ActionSigner($this->snapshotSecret, array_map('strval', array_keys($this->deferred)));
+        return new ActionSigner($this->snapshotSecret, $this->deferred->names());
     }
 
     public function csrf(): CsrfGuard
@@ -186,15 +185,7 @@ final class Rosanna
      */
     public function registerDeferred(string $name, string $component, ?string $cacheControl = null): self
     {
-        Defer::assertValidName($name);
-        if (isset($this->deferred[$name])) {
-            throw new \InvalidArgumentException(sprintf(
-                "Deferred name '%s' is already registered (component: %s). Deferred names are part of the public URL surface and must be unique.",
-                $name,
-                $this->deferred[$name]['component'],
-            ));
-        }
-        $this->deferred[$name] = ['component' => $component, 'cacheControl' => $cacheControl];
+        $this->deferred->register($name, $component, $cacheControl);
 
         return $this;
     }
@@ -222,7 +213,7 @@ final class Rosanna
             $signer,
             $signer->signingScope() ?? throw new \LogicException('A signer bound to a request always has a signing scope.'),
             $deferName,
-            $deferName === null ? null : ($this->deferred[$deferName]['component'] ?? null),
+            $deferName === null ? null : ($this->deferred->get($deferName)['component'] ?? null),
         );
     }
 
@@ -335,46 +326,7 @@ final class Rosanna
      */
     public function handleDeferred(Request $request): ?Response
     {
-        if ($request->method !== 'GET' || ($request->path !== $this->deferPrefix && !str_starts_with($request->path, $this->deferPrefix . '/'))) {
-            return null;
-        }
-
-        $name = rawurldecode(substr($request->path, strlen($this->deferPrefix) + 1));
-        if (!Defer::isValidName($name)) {
-            return self::plainResponse(404, 'Not Found');
-        }
-
-        $registration = $this->deferred[$name] ?? null;
-        if ($registration === null) {
-            return self::plainResponse(404, 'Deferred component not registered: ' . self::escape($name));
-        }
-
-        // DF-4 key がインスタンスの ID を決めるので、URL から他人の状態を選ばせない
-        $props = [];
-        foreach ($request->query as $param => $value) {
-            $param = (string) $param;
-            if ($param === 'key' || $param === 'fallback') {
-                continue;
-            }
-            if (!is_scalar($value)) {
-                return self::plainResponse(400, 'Deferred component param "' . self::escape($param) . '" must be a scalar.');
-            }
-            $props[$param] = $value;
-        }
-
-        try {
-            $body = $this->renderDeferredEndpoint($request, $name, $props);
-        } catch (\Throwable $e) {
-            // DF-7 例外のメッセージには FQCN やパスが入るので、公開のエンドポイントで見せない
-            error_log(sprintf("[Rosanna] defer render failed for name '%s' (component %s): %s\n%s", $name, $registration['component'], $e->getMessage(), $e->getTraceAsString()));
-
-            return self::plainResponse(500, 'Failed to render deferred component.');
-        }
-
-        return new Response(200, [
-            'Content-Type' => 'text/html; charset=UTF-8',
-            'Cache-Control' => self::cacheControlFor($name, $registration['cacheControl'] ?? self::DEFAULT_CACHE_CONTROL),
-        ], $body);
+        return $this->deferredEndpoint()->handle($request);
     }
 
     /**
@@ -402,6 +354,12 @@ final class Rosanna
         return $this->registry;
     }
 
+    /** @internal ActionHandler のため */
+    public function deferredEndpoint(): DeferredEndpoint
+    {
+        return new DeferredEndpoint($this, $this->deferred, $this->deferPrefix);
+    }
+
     /**
      * $fn の間に描画に渡された Element を集める (HD-6)。
      *
@@ -420,41 +378,6 @@ final class Rosanna
             return [$result, $this->collected];
         } finally {
             $this->collected = $outer;
-        }
-    }
-
-    /**
-     * replay の木で見つけたプレースホルダーの対象を、エンドポイントと同じ形で描画する (HD-9)。
-     * 失敗は探しているインスタンスの有無を何も言わないので、ログに出して飛ばす。
-     *
-     * @internal ActionHandler のため
-     * @param array<string, string> $props
-     */
-    public function renderDeferredForReplay(Request $request, string $name, array $props): ?Element
-    {
-        if (!isset($this->deferred[$name])) {
-            return null;
-        }
-
-        $outerGet = $_GET;
-        $_GET = $props;
-        $level = ob_get_level();
-        ob_start();
-        try {
-            return RenderContext::run($this->scope($request, $name), function () use ($name, $props): Element {
-                RenderContext::beginRender();
-
-                return $this->deferredTarget($name, $props);
-            });
-        } catch (\Throwable $e) {
-            error_log(sprintf("[Rosanna] defer render failed for name '%s' during a replay: %s", $name, $e->getMessage()));
-
-            return null;
-        } finally {
-            while (ob_get_level() > $level) {
-                ob_end_clean();
-            }
-            $_GET = $outerGet;
         }
     }
 
@@ -506,30 +429,15 @@ final class Rosanna
             return $componentName;
         }
 
-        return $this->registeredNameOf($componentName) ?? throw new \LogicException(sprintf(
+        return $this->registry->nameOf($componentName) ?? throw new \LogicException(sprintf(
             'Component %s is not registered. Call register() with its class before rendering it.',
             $componentName,
         ));
     }
 
-    private function registeredNameOf(string $className): ?string
-    {
-        $name = array_search($className, $this->registry->all(), true);
-
-        return $name === false ? null : (string) $name;
-    }
-
     private function newComponent(string $name): ComponentInterface
     {
         return $this->registry->create($name) ?? throw new \LogicException("Component {$name} is not registered.");
-    }
-
-    private function registerDeferredIfNew(string $name, string $component, ?string $cacheControl): void
-    {
-        $existing = $this->deferred[$name] ?? null;
-        if ($existing === null || $existing['component'] !== $component || $existing['cacheControl'] !== $cacheControl) {
-            $this->registerDeferred($name, $component, $cacheControl);
-        }
     }
 
     private function restorePersistentSnapshot(string $json): void
@@ -545,115 +453,6 @@ final class Rosanna
         } catch (SnapshotVerificationException $e) {
             error_log('[Rosanna] Snapshot rejected (behavior=Persistent): ' . $e->getMessage());
         }
-    }
-
-    /**
-     * @param array<string, mixed> $props
-     * @throws \Throwable 描画の例外。呼び出し側が 500 にする
-     */
-    private function renderDeferredEndpoint(Request $request, string $name, array $props): string
-    {
-        $outerGet = $_GET;
-        $outerPass = RenderContext::currentPass();
-        // クラスコンポーネントはパラメーターを $_GET から読む。host がパスを書き換えていてもこのリクエストの値にする
-        $_GET = $request->query;
-        $level = ob_get_level();
-        ob_start();
-        try {
-            $scope = $this->scope($request, $name);
-            $html = RenderContext::run($scope, function () use ($scope, $request, $name, $props): string {
-                RenderContext::beginRender();
-                $element = $this->deferredTarget($name, $props);
-
-                // HD-11 クラスコンポーネントのフォームが部分更新のためにこのクエリを運ぶ
-                return $scope->renderers
-                    ->create('_root_', deferQuery: $request->queryString === '' ? null : $request->queryString)
-                    ->renderElement($element);
-            });
-
-            return (string) ob_get_contents() . $html;
-        } finally {
-            while (ob_get_level() > $level) {
-                ob_end_clean();
-            }
-            $_GET = $outerGet;
-            RenderContext::resumePass($outerPass);
-        }
-    }
-
-    /** @param array<string, mixed> $props */
-    private function deferredTarget(string $name, array $props): Element
-    {
-        $component = $this->deferred[$name]['component'] ?? throw new \LogicException("Deferred component {$name} is not registered.");
-
-        // クラスコンポーネントは props を受けず、$_GET か state から読む
-        $registered = $this->registry->has($component) ? $component : $this->registeredNameOf($component);
-        if ($registered !== null) {
-            return $this->createElement($registered);
-        }
-
-        return RenderContext::scope()->psx->render($component, $props);
-    }
-
-    /**
-     * DF-8。セッションは描画の途中で始まることがあるので描画の後に確かめる。ポリシーだけでなく送信予定のヘッダーも見るのは、
-     * `session.cache_limiter = public` が `private` のポリシーを持つ応答にも public を送るため。
-     * リクエストに Cookie があるだけでは該当しない。
-     */
-    private static function cacheControlFor(string $name, string $policy): string
-    {
-        $pending = headers_list();
-        if (!self::allowsSharedCache($policy) && !self::pendingAllowsSharedCache($pending)) {
-            return $policy;
-        }
-
-        $reasons = [];
-        if (NativeSession::isActive() || (session_id() ?: '') !== '') {
-            $reasons[] = 'uses the session';
-        }
-        foreach ($pending as $header) {
-            if (stripos($header, 'set-cookie:') === 0) {
-                $reasons[] = 'sets a cookie';
-                break;
-            }
-        }
-        if ($reasons === []) {
-            return $policy;
-        }
-
-        $reason = implode(' and ', $reasons);
-        if (headers_sent()) {
-            // DF-9
-            error_log(sprintf("[Rosanna] defer endpoint '%s' %s, but headers were already sent, so it may stay cacheable", $name, $reason));
-        }
-        error_log(sprintf("[Rosanna] defer endpoint '%s' (cacheControl \"%s\") would be stored by shared caches but %s; using \"private, no-store\"", $name, $policy, $reason));
-
-        return 'private, no-store';
-    }
-
-    /** `private` か `no-store` を含まないものを共有キャッシュを許すと扱う。フィールド名つきの `private="x"` は含まない */
-    private static function allowsSharedCache(string $cacheControl): bool
-    {
-        $directives = array_map(trim(...), explode(',', strtolower($cacheControl)));
-
-        return !in_array('private', $directives, true) && !in_array('no-store', $directives, true);
-    }
-
-    /** @param list<string> $headers */
-    private static function pendingAllowsSharedCache(array $headers): bool
-    {
-        foreach ($headers as $header) {
-            if (stripos($header, 'cache-control:') === 0 && self::allowsSharedCache(substr($header, strlen('cache-control:')))) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static function plainResponse(int $status, string $body): Response
-    {
-        return new Response($status, ['Content-Type' => 'text/plain; charset=UTF-8', 'Cache-Control' => 'no-store'], $body);
     }
 
     private static function escape(string $value): string
