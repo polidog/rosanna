@@ -506,7 +506,7 @@ return [
 
 - **CP-134** コンパイラは DI を知らない。`parameters` はメタデータとして書くだけで、引数の解決はランタイムの
   `PsxArgumentResolver` に host が渡す実装が行う。Relayer はこれでコンテナからサービスを引く。
-- **CP-135** deferred manifest を書くのは `vendor/bin/rosanna-state compile` だけで、`polidog/rosanna-state` の `DeferredManifestCompiler` が行う。本体の `CompileCommand` は `FunctionComponent` を知らず、manifest の後に動く `\Closure` を受けるだけである (`new CompileCommand($afterManifest)`。インターフェースは作らない。`--check` と `--watch` も同じ経路を通る)。
+- **CP-135** deferred manifest を書くのは `vendor/bin/rosanna-defer compile` と `vendor/bin/rosanna-state compile` で、`polidog/rosanna-defer` の `DeferredManifestCompiler` が行う。本体の `CompileCommand` は `FunctionComponent` を知らず、manifest の後に動く `\Closure` を受けるだけである (`new CompileCommand($afterManifest)`。インターフェースは作らない。`--check` と `--watch` も同じ経路を通る)。
   クロージャは manifest に載るファイルのうち成果物に `Defer` の文字列を含むものだけを `require` し、返り値が `FunctionComponent` で `defer` を持つものを集める (`CompileCommand.php:399`)。コンパイル時にそのファイルの
   トップレベルのコードが実行されることを、仕様書に明記する。本体の `rosanna compile` は何も `require` しない。`--check` で成果物が古ければ、クロージャを呼ばず読み込まない。
 - **CP-136** `rosanna-state compile` は、項目が空でも deferred manifest を必ず書き、manifest と同じ build ID を持たせる (CP-144)。クロージャを渡さない `rosanna compile` は defer を調べないので、残っている deferred manifest は古い。消す (`--check` では消さずに古いと報告して exit 1)。
@@ -620,8 +620,8 @@ usePHP の `StackTraceRewriter` は `.psx.php` で終わるパスだけを書き
 | `Polidog\Rosanna\Html\createElement(string $type, array $params): Element` | 組み込みタグと Fragment | `src/Html/Elements.php:1393` |
 | `Polidog\Rosanna\Html\H::defer(...)` | `<defer>`。引数名は CP-62 の 6 つ | `src/Html/Elements.php:1326` |
 | `Polidog\Rosanna\Runtime\RenderContext::scope()->psx->render(string $fqcn, array $props)` | コンポーネントタグ | `src/Psx/PsxParser.php:577` |
-| `Polidog\Rosanna\State\FunctionComponent` の `defer` | deferred manifest の収集。`polidog/rosanna-state` の `DeferredManifestCompiler` が見る。コンパイラは参照しない | `src/Psx/CompileCommand.php:434` |
-| `Polidog\Rosanna\State\Component\Defer` の `name`、`cacheControl` | 同上 | `src/Psx/CompileCommand.php:437` |
+| `Polidog\Rosanna\Defer\DeclaresDefer` | deferred manifest の収集。`polidog/rosanna-defer` の `DeferredManifestCompiler` が見る。コンパイラは参照しない | `src/Psx/CompileCommand.php:434` |
+| `Polidog\Rosanna\Defer\Defer` の `name`、`cacheControl` | 同上 | `src/Psx/CompileCommand.php:437` |
 | `fc` の関数名 | `parameters` の収集 (CP-132)。名前空間によらず関数名で判定するので、`State\fc` のままで変更がない | `src/Psx/CompileCommand.php:238` |
 | `MANIFEST_FILENAME`、`DEFERRED_MANIFEST_FILENAME` | CP-137 | `src/Psx/CompileCommand.php:38` |
 | `BUILD_ID_KEY` | CP-144 | なし |

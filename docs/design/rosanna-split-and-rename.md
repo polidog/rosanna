@@ -110,6 +110,14 @@ usePHP のリポジトリは改名せずに残し、`polidog/rosanna` を新し�
 新旧の両方を受け付ける期間は設けない。移行時に CDN に残った HTML や古い JS は動かなくなるので、利用者は
 デプロイのときにキャッシュを消す。
 
+## defer の分離 (2026-11-02)
+
+当初は defer を状態層に置いた。`ActionHandler` と `rosanna.js` を共有していて、2 サイトでも使っていなかったためである。Relayer で useState を使わずに defer を使う要件が出たので、`polidog/rosanna-defer` に切り出した。
+
+- 依存の向きは `rosanna-state` → `rosanna-defer` → `rosanna`。defer を state の上に載せると状態なしで使えない。
+- 本体の差し替え口は `RenderExtension` と別の `DeferredRenderer` にした。`RenderExtension` を実装すると、状態なしの描画のタグの検査を複製することになるため。
+- state に残るのは、断片の中のフォーム、署名の `defer:{name}`、replay の探索、部分更新とセッションの更新との接続である。
+
 ## パッケージの中の境界
 
 `polidog/rosanna` の必須依存は `ext-mbstring` と `nikic/php-parser` で、どちらもコンパイラのためのものである。`polidog/rosanna-state` の必須依存は `polidog/rosanna` だけである。
@@ -118,7 +126,8 @@ usePHP のリポジトリは改名せずに残し、`polidog/rosanna` を新し�
 |---|---|---|---|
 | `polidog/rosanna` | `src/` (`src/Psx/` の外) | `H`、`Element`、`Renderer`、`RenderContext`、`RenderScope`、`PsxRenderer`、`RequestLifecycle`、差し替え口 (`RenderExtension`、`EventBinding`、`EventResolver`、`ResolvesItself`、`AcceptsArgumentResolver`)、`Rosanna` | なし |
 | `polidog/rosanna` | `src/Psx/` | Parser、Compiler、CompileCommand | `nikic/php-parser`、`ext-mbstring` |
-| `polidog/rosanna-state` | `src/` | hooks、`fc()`、`component()`、`Action`、`Component`、`Http`、`Protocol`、`Snapshot`、`Storage`、defer、`public/rosanna.js`、`RosannaState` | `polidog/rosanna` |
+| `polidog/rosanna-defer` | `src/` | `Defer`、`DeferredRegistry`、`DeferredEndpoint`、`PlaceholderRenderer`、`DeferredManifestCompiler`、`deferred()`、`RosannaDefer`、`public/rosanna-defer.js` | `polidog/rosanna` |
+| `polidog/rosanna-state` | `src/` | hooks、`fc()`、`component()`、`Action`、`Component`、`Http`、`Protocol`、`Snapshot`、`Storage`、`public/rosanna.js`、`RosannaState` | `polidog/rosanna`、`polidog/rosanna-defer` |
 
 `psr/http-message` には依存しない。分割設計の step 0 は `require` に加えるが、usePHP も Relayer も PSR-7 を使っておらず、
 リクエストは `Polidog\Rosanna\State\Http\Request` (usePHP の `RequestContext` に相当) で受ける。これは状態層の値オブジェクトで、`polidog/rosanna` は HTTP を知らない。

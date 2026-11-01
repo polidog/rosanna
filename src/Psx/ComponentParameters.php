@@ -74,7 +74,7 @@ final class ComponentParameters
 
         if ($expr instanceof Node\Expr\FuncCall
             && $expr->name instanceof Node\Name
-            && $expr->name->getLast() === 'fc') {
+            && \in_array($expr->name->getLast(), ['fc', 'deferred'], true)) {
             $expr = $this->componentArgument($expr);
         }
 

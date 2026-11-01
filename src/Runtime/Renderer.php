@@ -43,6 +43,7 @@ final class Renderer
 
     public function __construct(
         private readonly ?RenderExtension $extension = null,
+        private readonly ?DeferredRenderer $deferred = null,
     ) {}
 
     /** @throws \RuntimeException 不正な Element が届いたとき */
@@ -81,11 +82,11 @@ final class Renderer
 
     private function renderDeferred(Element $element): string
     {
-        if ($this->extension === null) {
-            throw new \RuntimeException('Deferred rendering (<defer> and H::defer()) needs polidog/rosanna-state. Install it and render through RosannaState.');
+        if ($this->deferred === null) {
+            throw new \RuntimeException('Deferred rendering (<defer> and H::defer()) needs polidog/rosanna-defer. Install it and render through RosannaDefer or RosannaState.');
         }
 
-        return $this->extension->renderDeferred($element, $this->renderNode(...));
+        return $this->deferred->renderDeferred($element, $this->renderNode(...));
     }
 
     private function renderTag(Element $element): string

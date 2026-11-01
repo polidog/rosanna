@@ -27,11 +27,4 @@ interface RenderExtension
      * @param \Closure(string, array<mixed>): string $content タグ名と children を HTML にする
      */
     public function renderTag(Element $element, string $lowerTag, bool $isVoid, \Closure $attributes, \Closure $content): string;
-
-    /**
-     * 予約の type `__defer__` を HTML にする。
-     *
-     * @param \Closure(Element): string $render 中の Element を `Renderer` で描画する
-     */
-    public function renderDeferred(Element $element, \Closure $render): string;
 }

@@ -10,7 +10,7 @@ Rosanna は、React の要素の形で PHP から HTML を書くライブラリ�
 
 Rosanna はルーターも DI もイベントも持たず、HTTP を知りません。URL からページを選ぶことと入力を読むことは host (フレームワークか、ページごとの PHP ファイル) の役割です。
 
-**hooks と、サーバーを通して動くボタンやフォーム (`fc()`、`useState`、`onClick`、`<defer>`) を使うには [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state) を足します。** [状態を足す](#状態を足す)を見てください。
+**hooks と、サーバーを通して動くボタンやフォーム (`fc()`、`useState`、`onClick`) を使うには [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state) を足します。遅延読み込み (`<defer>`) だけなら [`polidog/rosanna-defer`](https://github.com/polidog/rosanna-defer) で足ります。** [状態を足す](#状態を足す)を見てください。
 
 - PHP 8.5 以上と `mbstring` 拡張。`polidog/rosanna` は PSX のコンパイラのために `nikic/php-parser` を必要とします。描画では読み込みません。
 - 現在の版は v0.0.1 です。Composer の `^0.0.1` は 0.0.1 だけに一致します。
@@ -172,7 +172,7 @@ vendor/bin/rosanna compile components
 composer require polidog/rosanna-state
 ```
 
-hooks、署名付きの action、CSRF、Snapshot、Storage、defer、`rosanna.js` は [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state) にあります。依存の向きは `rosanna-state` からこのパッケージへの一方向です。入口は `RosannaState` で、[host に残る仕事](https://github.com/polidog/rosanna-state/blob/main/README.ja.md#host-に残る仕事)と[アプリの移行手順](https://github.com/polidog/rosanna-state/blob/main/README.ja.md#polidogrosanna-の状態を使っていたアプリの移行)はそちらの README にあります。`new` と `use` の置換だけでは済みません。
+hooks、署名付きの action、CSRF、Snapshot、Storage、`rosanna.js` は [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state) にあります。依存の向きは `rosanna-state` からこのパッケージへの一方向です。入口は `RosannaState` で、[host に残る仕事](https://github.com/polidog/rosanna-state/blob/main/README.ja.md#host-に残る仕事)と[アプリの移行手順](https://github.com/polidog/rosanna-state/blob/main/README.ja.md#polidogrosanna-の状態を使っていたアプリの移行)はそちらの README にあります。`new` と `use` の置換だけでは済みません。
 
 このパッケージだけで次のものを使うと、`polidog/rosanna-state` を案内する例外になります。動いているように見える出力はしません。
 
