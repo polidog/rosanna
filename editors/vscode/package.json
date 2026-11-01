@@ -1,0 +1,51 @@
+{
+  "name": "rosanna-psx",
+  "displayName": "Rosanna PSX",
+  "description": "Syntax highlighting for Rosanna .psx files",
+  "version": "0.1.0",
+  "publisher": "polidog",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/polidog/rosanna.git"
+  },
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "psx",
+    "rosanna",
+    "php"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "psx",
+        "aliases": [
+          "PSX",
+          "Rosanna PSX"
+        ],
+        "extensions": [
+          ".psx"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "psx",
+        "scopeName": "source.psx",
+        "path": "./syntaxes/psx.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.expression.psx": "php",
+          "source.css": "css",
+          "source.js": "javascript"
+        }
+      }
+    ]
+  }
+}

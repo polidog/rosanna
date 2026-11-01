@@ -1,0 +1,172 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "PSX",
+  "scopeName": "source.psx",
+  "patterns": [
+    { "include": "text.html.php" }
+  ],
+  "injections": {
+    "L:source.php -string -comment -meta.element.psx -meta.fragment.psx, L:meta.embedded.expression.psx -string -comment -meta.tag.attributes.psx": {
+      "patterns": [
+        { "include": "#markup" }
+      ]
+    }
+  },
+  "repository": {
+    "markup": {
+      "patterns": [
+        { "include": "#raw-style" },
+        { "include": "#raw-script" },
+        { "include": "#fragment" },
+        { "include": "#element" }
+      ]
+    },
+    "element": {
+      "name": "meta.element.psx",
+      "begin": "(?<![\\w)\\]$<])(<)([A-Za-z][\\w-]*)(?=\\s*/?>|\\s+[A-Za-z_]|\\s*$)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.psx" },
+        "2": { "patterns": [{ "include": "#tag-name" }] }
+      },
+      "end": "(/>)|(</)(\\2)\\s*(>)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.end.psx" },
+        "2": { "name": "punctuation.definition.tag.begin.psx" },
+        "3": { "patterns": [{ "include": "#tag-name" }] },
+        "4": { "name": "punctuation.definition.tag.end.psx" }
+      },
+      "patterns": [
+        { "include": "#attributes" },
+        {
+          "begin": ">",
+          "beginCaptures": { "0": { "name": "punctuation.definition.tag.end.psx" } },
+          "end": "(?=</)",
+          "patterns": [{ "include": "#children" }]
+        }
+      ]
+    },
+    "fragment": {
+      "name": "meta.fragment.psx",
+      "begin": "<>",
+      "beginCaptures": { "0": { "name": "punctuation.definition.tag.fragment.psx" } },
+      "end": "</>",
+      "endCaptures": { "0": { "name": "punctuation.definition.tag.fragment.psx" } },
+      "patterns": [{ "include": "#children" }]
+    },
+    "raw-style": {
+      "name": "meta.element.psx",
+      "begin": "(<)(style)(?![\\w-])",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.psx" },
+        "2": { "name": "entity.name.tag.psx" }
+      },
+      "end": "(/>)|(</)(style)\\s*(>)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.end.psx" },
+        "2": { "name": "punctuation.definition.tag.begin.psx" },
+        "3": { "name": "entity.name.tag.psx" },
+        "4": { "name": "punctuation.definition.tag.end.psx" }
+      },
+      "patterns": [
+        { "include": "#attributes" },
+        {
+          "begin": ">",
+          "beginCaptures": { "0": { "name": "punctuation.definition.tag.end.psx" } },
+          "end": "(?=</style\\s*>)",
+          "contentName": "meta.raw.psx source.css",
+          "patterns": [{ "include": "source.css" }]
+        }
+      ]
+    },
+    "raw-script": {
+      "name": "meta.element.psx",
+      "begin": "(<)(script)(?![\\w-])",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.psx" },
+        "2": { "name": "entity.name.tag.psx" }
+      },
+      "end": "(/>)|(</)(script)\\s*(>)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.end.psx" },
+        "2": { "name": "punctuation.definition.tag.begin.psx" },
+        "3": { "name": "entity.name.tag.psx" },
+        "4": { "name": "punctuation.definition.tag.end.psx" }
+      },
+      "patterns": [
+        { "include": "#attributes" },
+        {
+          "begin": ">",
+          "beginCaptures": { "0": { "name": "punctuation.definition.tag.end.psx" } },
+          "end": "(?=</script\\s*>)",
+          "contentName": "meta.raw.psx source.js",
+          "patterns": [{ "include": "source.js" }]
+        }
+      ]
+    },
+    "tag-name": {
+      "patterns": [
+        { "match": "(?<![\\w-])[A-Z][\\w-]*", "name": "support.class.component.psx" },
+        { "match": "[\\w-]+", "name": "entity.name.tag.psx" }
+      ]
+    },
+    "attributes": {
+      "patterns": [
+        { "match": "[A-Za-z_][\\w-]*", "name": "entity.other.attribute-name.psx" },
+        { "match": "=", "name": "punctuation.separator.key-value.psx" },
+        { "include": "#string-double" },
+        { "include": "#string-single" },
+        { "include": "#expression" }
+      ]
+    },
+    "string-double": {
+      "name": "string.quoted.double.psx",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        { "match": "\\\\[\"\\\\]", "name": "constant.character.escape.psx" },
+        { "include": "#entity" }
+      ]
+    },
+    "string-single": {
+      "name": "string.quoted.single.psx",
+      "begin": "'",
+      "end": "'",
+      "patterns": [
+        { "match": "\\\\['\\\\]", "name": "constant.character.escape.psx" },
+        { "include": "#entity" }
+      ]
+    },
+    "children": {
+      "patterns": [
+        { "include": "#markup" },
+        { "include": "#expression" },
+        { "include": "#entity" }
+      ]
+    },
+    "entity": {
+      "match": "&(?:[A-Za-z][A-Za-z0-9]*|#[0-9]+|#[xX][0-9A-Fa-f]+);",
+      "name": "constant.character.entity.psx"
+    },
+    "expression": {
+      "begin": "\\{",
+      "beginCaptures": { "0": { "name": "punctuation.section.embedded.begin.psx" } },
+      "end": "\\}",
+      "endCaptures": { "0": { "name": "punctuation.section.embedded.end.psx" } },
+      "contentName": "meta.embedded.expression.psx source.php",
+      "patterns": [
+        { "include": "#php-braces" },
+        { "include": "#markup" },
+        { "include": "source.php" }
+      ]
+    },
+    "php-braces": {
+      "begin": "\\{",
+      "end": "\\}",
+      "patterns": [
+        { "include": "#php-braces" },
+        { "include": "#markup" },
+        { "include": "source.php" }
+      ]
+    }
+  }
+}

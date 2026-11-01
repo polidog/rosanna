@@ -1,0 +1,47 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Components;
+
+use Polidog\Rosanna\Runtime\Action;
+
+use function Polidog\Rosanna\fc;
+use function Polidog\Rosanna\useState;
+
+// エディタの構文定義の確認用。タグ、コンポーネント、属性、{} の中の PHP、Fragment、
+// style と script の中身がそれぞれ違う色になる。比較の `$a < $b` はタグにならない。
+
+$isSmall = fn(int $a, int $b): bool => $a < $b;
+
+return fc(function (array $props): mixed {
+    [$count, $setCount] = useState(0);
+    $items = ['a' => 'リンゴ', 'b' => "ミカン } {"];
+
+    return (
+        <section id="counter" class='panel' hidden data-count={$count}>
+            <Header title="Counter &amp; more" user={['name' => 'Rosanna', 'tags' => ['x', 'y']]} />
+            {/* 空の式は子を作らない */}
+            <>
+                <p>Count: {$count} &nbsp; 1 &lt; 2 </p>
+                <button onClick={$setCount($count + 1)}>Add</button>
+            </>
+            <ul>
+                {array_map(fn(string $item): mixed => <li key={$item}>{$item}</li>, $items)}
+            </ul>
+            {$count > 0 && <Badge>{"残り } 件" . $count}</Badge>}
+            {$count > 10 ? <b>多い</b> : <i>少ない</i>}
+            <defer name="comments" localCache={true} fallback={<p>loading</p>} />
+            <style>
+                .panel { color: red; content: "{$notPhp}"; }
+            </style>
+            <script type="module">
+                const notPhp = { value: "{$alsoNotPhp}" };
+                if (1 < 2) { console.log(notPhp); }
+            </script>
+            <script src="/app.js" />
+            <label for="name">Name</label>
+            <var>keyword</var>
+        </section>
+    );
+});
