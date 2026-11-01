@@ -10,7 +10,7 @@ Rendering does not start a session, does not need JavaScript and adds nothing to
 
 Rosanna has no router, no DI and no events, and it knows nothing about HTTP. Choosing a page from a URL and reading input belong to the host (a framework, or one PHP file per page).
 
-**For hooks, buttons and forms that work through the server (`fc()`, `useState`, `onClick`, `<defer>`), add [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state).** See [Adding state](#adding-state).
+**For hooks, buttons and forms that work through the server (`fc()`, `useState`, `onClick`), add [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state). For deferred fragments (`<defer>`) alone, [`polidog/rosanna-defer`](https://github.com/polidog/rosanna-defer) is enough.** See [Adding state](#adding-state).
 
 - PHP 8.5+ with the `mbstring` extension. `polidog/rosanna` requires `nikic/php-parser` for the PSX compiler. Rendering does not load it.
 - The current version is v0.0.1. Composer's `^0.0.1` matches 0.0.1 only.
@@ -172,7 +172,7 @@ The compiler is part of this package, so `vendor/bin/rosanna compile` also works
 composer require polidog/rosanna-state
 ```
 
-Hooks, signed actions, CSRF, Snapshot, Storage, defer and `rosanna.js` live in [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state). It requires this package; this package does not know about it. It has its own entry point, `RosannaState`, and its README lists [what the host has to do](https://github.com/polidog/rosanna-state#what-the-host-still-does) and [how an app moves over](https://github.com/polidog/rosanna-state#migrating-an-app-that-used-state-on-polidogrosanna). Replacing `new` and `use` is not enough.
+Hooks, signed actions, CSRF, Snapshot, Storage and `rosanna.js` live in [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state). It requires this package; this package does not know about it. It has its own entry point, `RosannaState`, and its README lists [what the host has to do](https://github.com/polidog/rosanna-state#what-the-host-still-does) and [how an app moves over](https://github.com/polidog/rosanna-state#migrating-an-app-that-used-state-on-polidogrosanna). Replacing `new` and `use` is not enough.
 
 Without it, these throw an exception that points to `polidog/rosanna-state`. They never output something that looks like it works.
 

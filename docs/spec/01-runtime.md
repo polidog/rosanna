@@ -67,7 +67,7 @@ interface Renderable
 | type | 意味 | 処理 |
 |---|---|---|
 | `Fragment` | タグなしで子だけを出す | RT-3.2 |
-| `__defer__` | defer のプレースホルダー | `RenderExtension::renderDeferred()` (RT-3.15)。なければ例外 (RT-3.16)。プレースホルダーの中身は 02 |
+| `__defer__` | defer のプレースホルダー | `DeferredRenderer::renderDeferred()` (RT-3.15)。なければ例外 (RT-3.16)。プレースホルダーの中身は `polidog/rosanna-defer` |
 
   `State\component()` は予約の type を使わず、本体の `ResolvesItself` を実装した値を返す (状態層の RT-6.7)。
 
@@ -172,7 +172,7 @@ final class Renderer
     public const TAG_NAME_PATTERN = '/^[A-Za-z][A-Za-z0-9\-]*$/';
     public const ATTRIBUTE_NAME_PATTERN = '/^[A-Za-z_:][A-Za-z0-9:_.\-]*$/';
 
-    public function __construct(?RenderExtension $extension = null);
+    public function __construct(?RenderExtension $extension = null, ?DeferredRenderer $deferred = null);
     public function renderElement(Element|string $element): string;
 }
 
@@ -183,7 +183,7 @@ interface RenderExtension
     public function finishRender(): string;
     public function endRender(): void;
     public function renderTag(Element $element, string $lowerTag, bool $isVoid, \Closure $attributes, \Closure $content): string;
-    public function renderDeferred(Element $element, \Closure $render): string;
+    // 予約の type `__defer__` は別の口 `DeferredRenderer::renderDeferred(Element, \Closure): string` が描く
 }
 ```
 
@@ -260,8 +260,8 @@ interface RenderExtension
 
 ### 差し替え口
 
-- **RT-3.15** `RenderExtension` が覆うのは、最も外側の描画の開始と終了 (`beginRender`、`finishRender`、`endRender`)、タグの描画 (`renderTag`。`data-rosanna` のスコープ、要素の束縛)、予約の type `__defer__` (`renderDeferred`) である。`endRender` は例外のときも呼ぶ。タグ名の検証は `renderTag` より前に本体が行い、属性の検査と子の描画は渡されたクロージャで本体に任せる。`Rosanna` は差し込まれた factory で描画ごとに作る。
-- **RT-3.16** `RenderExtension` なしの `Renderer` では、`wire:` で始まる prop (大文字小文字を区別しない) と `__defer__` を `RuntimeException` にし、`polidog/rosanna-state` を案内する。属性として出力しない。
+- **RT-3.15** `RenderExtension` が覆うのは、最も外側の描画の開始と終了 (`beginRender`、`finishRender`、`endRender`)、タグの描画 (`renderTag`。`data-rosanna` のスコープ、要素の束縛)。予約の type `__defer__` は `DeferredRenderer` が覆い、`RenderExtension` と独立している。`polidog/rosanna-defer` が実装し、状態層もそれを使う である。`endRender` は例外のときも呼ぶ。タグ名の検証は `renderTag` より前に本体が行い、属性の検査と子の描画は渡されたクロージャで本体に任せる。`Rosanna` は差し込まれた factory で描画ごとに作る。
+- **RT-3.16** `RenderExtension` なしの `Renderer` では `wire:` で始まる prop (大文字小文字を区別しない) を `RuntimeException` にし、`polidog/rosanna-state` を案内する。`DeferredRenderer` なしの `Renderer` では `__defer__` を `RuntimeException` にし、`polidog/rosanna-defer` を案内する。属性として出力しない。
 
 **テスト**
 
@@ -393,6 +393,7 @@ final class Rosanna
      * 引数は状態層のための差し替え口で、描画だけなら何も渡さない。
      *
      * @param (\Closure(RenderScope): RenderExtension)|null $extensionFactory renderElement() のたびに呼ぶ
+     * @param (\Closure(RenderScope): DeferredRenderer)|null $deferredFactory renderElement() のたびに呼ぶ
      * @param (\Closure(PsxRenderer, ?RenderScope): RenderScope)|null $scopeFactory 新しいスコープを作る。第 2 引数は外のスコープ (あれば)
      */
     public function __construct(?\Closure $extensionFactory = null, ?\Closure $scopeFactory = null);

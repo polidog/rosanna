@@ -24,6 +24,7 @@ use Polidog\Rosanna\Tests\Psx\Support\TemporaryDirectory;
 final class WithoutStateLayerTest extends TestCase
 {
     private const string GUIDE = 'polidog/rosanna-state';
+    private const string DEFER_GUIDE = 'polidog/rosanna-defer';
 
     public static int $invoked = 0;
 
@@ -124,17 +125,17 @@ final class WithoutStateLayerTest extends TestCase
     }
 
     /** RT-1.2 値を作るだけなので、描画するまでは例外にならない */
-    public function testDeferBuildsTheElementAndRenderingGuidesToTheStateLayer(): void
+    public function testDeferBuildsTheElementAndRenderingGuidesToTheDeferPackage(): void
     {
         $element = H::defer('panel');
         self::assertSame('__defer__', $element->type);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage(self::GUIDE);
+        $this->expectExceptionMessage(self::DEFER_GUIDE);
         new Rosanna()->renderElement($element);
     }
 
-    public function testDeferTagInPsxGuidesToTheStateLayer(): void
+    public function testDeferTagInPsxGuidesToTheDeferPackage(): void
     {
         $dir = TemporaryDirectory::create('psx-no-state-');
         try {
@@ -144,11 +145,24 @@ final class WithoutStateLayerTest extends TestCase
             \assert($component instanceof \Closure);
 
             $this->expectException(\RuntimeException::class);
-            $this->expectExceptionMessage(self::GUIDE);
+            $this->expectExceptionMessage(self::DEFER_GUIDE);
             new Rosanna()->renderElement($component());
         } finally {
             TemporaryDirectory::remove($dir);
         }
+    }
+
+    /** defer の差し替え口は状態層の差し替え口と独立している */
+    public function testDeferredRendererWorksWithoutARenderExtension(): void
+    {
+        $deferred = new class implements \Polidog\Rosanna\Runtime\DeferredRenderer {
+            public function renderDeferred(\Polidog\Rosanna\Runtime\Element $element, \Closure $render): string
+            {
+                return '<placeholder>';
+            }
+        };
+
+        self::assertSame('<div><placeholder></div>', new \Polidog\Rosanna\Runtime\Renderer(deferred: $deferred)->renderElement(H::div(children: [H::defer('a')])));
     }
 
     public function testDeferNameIsValidatedWithoutTheStateLayer(): void

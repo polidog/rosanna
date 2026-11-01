@@ -95,6 +95,7 @@ final class ManifestTest extends TestCase
         yield 'fc fully qualified' => ['\\Polidog\\Rosanna\\State\\fc(fn (array $props) => <a />)', [$props]];
         yield 'fc with a closure' => ['fc(function (array $props, Repo $repo) { return <a />; })', [$props, $repo]];
         yield 'fc with a variable' => ['fc($callable)', []];
+        yield 'deferred' => ['deferred(fn (array $props, Repo $repo) => <a />, new Defer(\'a\'))', [$props, $repo]];
         yield 'not a closure' => ['"strlen"', []];
         yield 'not fc' => ['wrap(fn (array $props) => <a />)', []];
     }

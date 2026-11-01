@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna;
 
+use Polidog\Rosanna\Runtime\DeferredRenderer;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\PsxArgumentResolver;
 use Polidog\Rosanna\Runtime\PsxRenderer;
@@ -24,14 +25,16 @@ final class Rosanna
     private \Closure $scopeFactory;
 
     /**
-     * 引数は状態層 (`polidog/rosanna-state`) のための差し替え口で、描画だけなら何も渡さない。
+     * 引数は `polidog/rosanna-state` と `polidog/rosanna-defer` のための差し替え口で、描画だけなら何も渡さない。
      *
      * @param (\Closure(RenderScope): RenderExtension)|null $extensionFactory `renderElement()` のたびに呼ぶ
      * @param (\Closure(PsxRenderer, ?RenderScope): RenderScope)|null $scopeFactory 新しいスコープを作る。第 2 引数は外のスコープ (あれば)
+     * @param (\Closure(RenderScope): DeferredRenderer)|null $deferredFactory `renderElement()` のたびに呼ぶ
      */
     public function __construct(
         private readonly ?\Closure $extensionFactory = null,
         ?\Closure $scopeFactory = null,
+        private readonly ?\Closure $deferredFactory = null,
     ) {
         $this->psx = new PsxRenderer();
         $this->scopeFactory = $scopeFactory ?? static fn(PsxRenderer $psx, ?RenderScope $outer): RenderScope => new RenderScope($psx, $outer?->state);
@@ -75,7 +78,9 @@ final class Rosanna
         return $this->inScope(function (RenderScope $scope) use ($element): string {
             $extension = $this->extensionFactory === null ? null : ($this->extensionFactory)($scope);
 
-            return new Renderer($extension)->renderElement($element);
+            $deferred = $this->deferredFactory === null ? null : ($this->deferredFactory)($scope);
+
+            return new Renderer($extension, $deferred)->renderElement($element);
         });
     }
 

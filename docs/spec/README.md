@@ -9,6 +9,7 @@ usePHP のコードはコピーせず、ここに書いた振る舞いを新し�
 |---|---|---|
 | [01-runtime.md](01-runtime.md) | `H`、Renderer、`RenderExtension`、描画スコープ、PSX の読み込み、`Rosanna` の描画 API、`vendor/bin/rosanna` | `RT-` |
 | [03-compiler.md](03-compiler.md) | PSX、コンパイラ (`src/Psx/`) | `CP-` |
+| [`polidog/rosanna-defer` の 01-defer.md](https://github.com/polidog/rosanna-defer/blob/main/docs/spec/01-defer.md) | defer のエンドポイント、プレースホルダー、`rosanna-defer.js` | `DF-`、`JS-16`〜`JS-20` |
 | [`polidog/rosanna-state` の 01](https://github.com/polidog/rosanna-state/blob/main/docs/spec/01-runtime.md) | フォームの束縛と配置、Component、hooks、状態層のスコープ、`RosannaState` の API、publish | `RT-` (RT-4〜8、RT-9.4、RT-9.5、RT-10、RT-12、RT-13) |
 | [`polidog/rosanna-state` の 02](https://github.com/polidog/rosanna-state/blob/main/docs/spec/02-state-and-actions.md) | Storage、Snapshot、Action、署名、CSRF、バージョン照合、defer、`rosanna.js` | `RQ-` `ST-` `SN-` `AC-` `SG-` `CS-` `VR-` `HD-` `DF-` `JS-` |
 
@@ -26,7 +27,8 @@ usePHP のコードはコピーせず、ここに書いた振る舞いを新し�
 | `StateScope` (`$signer`、`$signingScope`、`$renderers` を含む)。`RenderScope::$state` に入る | 状態層の 01 の 9 節 |
 | `Rosanna::scope()`、`Rosanna` の `$extensionFactory` と `$scopeFactory` | 01 の 12 節 |
 | `RosannaState::scope(Request $request, ?string $deferName = null)` | 状態層の 01 の 12 節 |
-| `RenderExtension` (フォームの配置と `__defer__`) | 01 の RT-3.15。実装は状態層の RT-4 |
+| `RenderExtension` (フォームの配置) | 01 の RT-3.15。実装は状態層の RT-4 |
+| `DeferredRenderer` (`__defer__`) | 01 の RT-3.15。実装は `polidog/rosanna-defer` |
 | `EventBinding`、`EventResolver` (`onClick` などの値)、`Action` の実装 | 01 の RT-2.6。状態層の 02 の 3 節 |
 | `ResolvesItself` (`BaseComponent`、`State\component()`) | 01 の RT-2.8。状態層の RT-5.4、RT-6.7 |
 | `AcceptsArgumentResolver` (`FunctionComponent`) | 01 の RT-11.3 |

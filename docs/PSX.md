@@ -5,7 +5,7 @@ PSX は、PHP のファイルの中に HTML のようにタグを書ける構文
 
 この文書は v0.0.1 の PSX を説明します。
 
-コンパイラは本体の `polidog/rosanna` にあります。`fc()`、`useState`、`onClick`、`<defer>` は [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state) のものです。状態のないコンポーネントは `return fn (array $props) => <div />;` で書けます。
+コンパイラは本体の `polidog/rosanna` にあります。`fc()`、`useState`、`onClick` は [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state)、`<defer>` の描画は [`polidog/rosanna-defer`](https://github.com/polidog/rosanna-defer) のものです。状態のないコンポーネントは `return fn (array $props) => <div />;` で書けます。
 ```php
 <?php
 // components/Counter.psx
@@ -112,7 +112,7 @@ deferred manifest を作るには、返り値の `fc(..., defer: new Defer(...))
 
 ### コンポーネントの引数
 
-`return` するのはクロージャ、アロー関数、または `polidog/rosanna-state` の `fc()` でそれを包んだものです。パラメータは次の順に判定され、manifest に記録されます。
+`return` するのはクロージャ、アロー関数、または `polidog/rosanna-state` の `fc()`、`polidog/rosanna-defer` の `deferred()` でそれを包んだものです。パラメータは次の順に判定され、manifest に記録されます。
 
 | 順 | 条件 | 意味 |
 |---|---|---|
@@ -230,7 +230,7 @@ fn () => <a />;
 
 `<defer>` は、子がなく、`name` があり、属性が `name`、`params`、`fallback`、`localCache`、`reloadable`、`localCacheTtl` の範囲に
 収まるときだけ defer のプレースホルダになります。それ以外は普通の要素です。
-描画には `polidog/rosanna-state` が要ります。状態層なしで描画すると、それを案内する例外になります。
+描画には `polidog/rosanna-defer` が要ります (`polidog/rosanna-state` にも含まれます)。なしで描画すると、それを案内する例外になります。
 
 ```php
 <defer name="user-header" params={['id' => 1]} fallback={<p>...</p>} localCache={true} localCacheTtl={60} />
