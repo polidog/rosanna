@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\Tests\Psx\Integration;
 
-use Polidog\Rosanna\Http\Request;
 use Polidog\Rosanna\Psx\CompileCommand;
 use Polidog\Rosanna\Psx\Compiler;
 use Polidog\Rosanna\Rosanna;
@@ -40,17 +39,12 @@ trait RendersPsx
         return $this->workDir ??= TemporaryDirectory::create('psx-integration-');
     }
 
-    private function request(): Request
-    {
-        return new Request('GET', '/', '/', '');
-    }
-
     /**
      * RT-12.8: スコープの中で $fn を動かす。
      */
     private function inScope(Rosanna $app, callable $fn): mixed
     {
-        return RenderContext::run($app->scope($this->request()), $fn);
+        return RenderContext::run($app->scope(), $fn);
     }
 
     /**

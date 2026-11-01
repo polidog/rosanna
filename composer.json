@@ -1,6 +1,6 @@
 {
     "name": "polidog/rosanna",
-    "description": "React Hooks-like PHP components with server-side state management",
+    "description": "Server-side PHP components in the shape of React: H, Element, Renderer and the PSX compiler",
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -15,7 +15,6 @@
         "nikic/php-parser": "^5.7"
     },
     "require-dev": {
-        "composer/composer": "^2.8",
         "friendsofphp/php-cs-fixer": "^3.93",
         "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^11.0",
@@ -26,8 +25,7 @@
             "Polidog\\Rosanna\\": "src/"
         },
         "files": [
-            "src/Html/Elements.php",
-            "src/Runtime/Hooks.php"
+            "src/Html/Elements.php"
         ]
     },
     "autoload-dev": {

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Polidog\Rosanna\Tests\Runtime;
 
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Html\H;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
 use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
@@ -47,31 +46,5 @@ final class ElementTest extends TestCase
     public function testRT12FragmentHasNoTag(): void
     {
         self::assertSame('a<b></b>', self::html(static fn() => new Element('Fragment', ['ignored' => 1], ['a', new Element('b')])));
-    }
-
-    public function testRT12DeferIsAPlaceholder(): void
-    {
-        self::assertSame('<div data-rosanna-defer-url="/_defer/x"></div>', self::html(static fn() => H::defer('x')));
-    }
-
-    public function testRT12AndRT36UnresolvedFunctionComponentIsRefused(): void
-    {
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('unresolved');
-        self::html(static fn() => H::component(static fn() => H::div()));
-    }
-
-    public function testRT67ChildComponentIsExpandedWithoutWrapper(): void
-    {
-        self::assertSame(
-            '<div><span>v</span></div>',
-            self::html(static fn() => H::div(children: [H::component(static fn(array $props) => H::span(children: $props['x']), ['x' => 'v', 'key' => 1])])),
-        );
-    }
-
-    public function testRT67InvalidKeyIsRefused(): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        H::component(static fn() => H::div(), ['key' => ['a']]);
     }
 }

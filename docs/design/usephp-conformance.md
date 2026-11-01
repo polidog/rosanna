@@ -8,15 +8,15 @@ Status: 2026-11-01、usePHP `e073bff` (v0.10.0) の `README.ja.md`、`docs/PSX.m
 - **落とした**: 計画書か仕様の決定で意図して作らないもの。
 - **未対応**: 使えない、または動くことを確かめていないもの。
 
-テストのパスはリポジトリのルートからである。
+テストのパスはリポジトリのルートからである。状態層の分離 (polidog/rosanna#7) の後の場所を書く。`rosanna-state:` で始まるものは [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state) のテストで、印のないものは `polidog/rosanna` のテストである。短い名前 (`ClassTest::testX*`) も同じ。
 
 ## 集計
 
 | 分類 | 件数 |
 |---|---|
-| 動く | 82 |
+| 動く | 83 |
 | 落とした | 22 |
-| 未対応 | 2 |
+| 未対応 | 1 |
 
 ## セキュリティの照合
 
@@ -30,7 +30,7 @@ Status: 2026-11-01、usePHP `e073bff` (v0.10.0) の `README.ja.md`、`docs/PSX.m
 
 攻撃に必要なのは、そのページで描画された有効なフォームである。権限を失った利用者が取っておいたフォーム、秘密鍵ありでセッションのない訪問者向けのフォームが該当する。
 
-**対応。** SG-5 の正規化は保ち、署名と同じ正規化を返す `Request::pagePath()` を足した。README の保護の例はこれで比べ、`tests/Integration/ReadmeExamplesTest.php` の `testGuardCoversEveryPathTheSignatureAccepts` で実際の HTTP で確かめた。**host が生の `$request->path` で比べると、今も `/admin/` で避けられる。** Rosanna は host の比較を強制できないので、これは残るリスクで、README と SG-5 に書いた。
+**対応。** SG-5 の正規化は保ち、署名と同じ正規化を返す `Request::pagePath()` を足した。README の保護の例はこれで比べ、`rosanna-state:tests/Integration/ReadmeExamplesTest.php` の `testGuardCoversEveryPathTheSignatureAccepts` で実際の HTTP で確かめた。**host が生の `$request->path` で比べると、今も `/admin/` で避けられる。** Rosanna は host の比較を強制できないので、これは残るリスクで、README と SG-5 に書いた。
 
 ### 計画書の表にないコミット
 
@@ -40,15 +40,15 @@ Status: 2026-11-01、usePHP `e073bff` (v0.10.0) の `README.ja.md`、`docs/PSX.m
 |---|---|---|---|
 | `864ece5` | タブと改行を含む危険な URL の遮断、属性名の大文字小文字 | RT-3.11 | `tests/Security/SecurityHardeningTest.php` の `testRT311*`、手元 |
 | `f92da1b` | `srcdoc` の拒否 | RT-3.10 | `tests/Runtime/RendererOutputTest.php` の `testRT310*`、手元 (`srcDoc`、`SRCDOC`) |
-| `cb415f9` | action の署名と入力の検証 | SG-1、AC-3、AC-5、AC-6、HD-3 | `tests/Protocol/ActionHandlerTest.php` の `testStep4*`、`testStep5*` |
+| `cb415f9` | action の署名と入力の検証 | SG-1、AC-3、AC-5、AC-6、HD-3 | `rosanna-state:tests/Protocol/ActionHandlerTest.php` の `testStep4*`、`rosanna-state:testStep5*` |
 | `1f5e847` | イベントの props を `Action` とクロージャに限る | RT-2.6 | `SecurityHardeningTest` の `testRT26*` |
-| `dcf3759` | Session の Snapshot をセッション ID に束縛、URL からの取り込みの削除 | SN-6、SN-23、SN-24 | `tests/Integration/SnapshotBehaviorFlowTest.php` の `testSN23*`、`testSN24*` |
-| `750af5a` | redirect 先を同一オリジンのパスに揃える | HD-13 | `ActionHandlerTest` の `testHD13*`、`SessionActionFlowTest` の `testHD13*` |
-| `3f712b5` | `useEffect` の cleanup を `Closure` に限る | RT-7.10 | `tests/Runtime/HooksTest.php` の `testRT710*` |
-| `bec8ff6` | cleanup をリクエストのメモリにだけ置く | RT-7.11、ST-6 | `HooksTest` の `testRT711*`、`SessionLifecycleTest` の `testST6*` |
-| `481f02e` | 状態の型を JSON の往復で保つ | AC-4 | `tests/Runtime/ActionTest.php` の `testAC4*` |
-| `f1ca983` | 入れ子の defer をプレースホルダーのままにする | DF-6 | `tests/Protocol/DeferredEndpointTest.php` の `testDF6*` |
-| `5c57302` | action の POST でも保護を実行する | host の役割 (02 の 7 節) | 漏れの 1 を除き `ReadmeExamplesTest`、`SessionActionFlowTest::testSG6*` |
+| `dcf3759` | Session の Snapshot をセッション ID に束縛、URL からの取り込みの削除 | SN-6、SN-23、SN-24 | `rosanna-state:tests/Integration/SnapshotBehaviorFlowTest.php` の `testSN23*`、`rosanna-state:testSN24*` |
+| `750af5a` | redirect 先を同一オリジンのパスに揃える | HD-13 | `rosanna-state:ActionHandlerTest` の `testHD13*`、`rosanna-state:SessionActionFlowTest` の `testHD13*` |
+| `3f712b5` | `useEffect` の cleanup を `Closure` に限る | RT-7.10 | `rosanna-state:tests/Runtime/HooksTest.php` の `testRT710*` |
+| `bec8ff6` | cleanup をリクエストのメモリにだけ置く | RT-7.11、ST-6 | `rosanna-state:HooksTest` の `testRT711*`、`rosanna-state:SessionLifecycleTest` の `testST6*` |
+| `481f02e` | 状態の型を JSON の往復で保つ | AC-4 | `rosanna-state:tests/Runtime/ActionTest.php` の `testAC4*` |
+| `f1ca983` | 入れ子の defer をプレースホルダーのままにする | DF-6 | `rosanna-state:tests/Protocol/DeferredEndpointTest.php` の `testDF6*` |
+| `5c57302` | action の POST でも保護を実行する | host の役割 (02 の 7 節) | 漏れの 1 を除き `rosanna-state:ReadmeExamplesTest`、`rosanna-state:SessionActionFlowTest::testSG6*` |
 
 `97cc436`、`e1cf82c`、`9476066` (ルートのパラメーターのデコード、パターンの文字、HEAD) はルーターの修正で、ルーターごと落とした。URL の値の検証は host の役割になる。
 
@@ -56,19 +56,19 @@ Status: 2026-11-01、usePHP `e073bff` (v0.10.0) の `README.ja.md`、`docs/PSX.m
 
 | 振る舞い | コミット | 確かめた場所 |
 |---|---|---|
-| スナップショットの HMAC | `434527d` | `tests/Snapshot/SnapshotSerializerTest.php` |
-| CSRF | `434527d` | `tests/Protocol/CsrfGuardTest.php`、`SessionActionFlowTest` の `testCS*` |
-| open redirect | `434527d` | `tests/Snapshot/SnapshotUrlTest.php` の `testSN20*`、`ActionHandlerTest` の `testHD13*`、`tests/browser/resend.spec.ts` (JS-4) |
+| スナップショットの HMAC | `434527d` | `rosanna-state:tests/Snapshot/SnapshotSerializerTest.php` |
+| CSRF | `434527d` | `rosanna-state:tests/Protocol/CsrfGuardTest.php`、`rosanna-state:SessionActionFlowTest` の `testCS*` |
+| open redirect | `434527d` | `rosanna-state:tests/Snapshot/SnapshotUrlTest.php` の `testSN20*`、`rosanna-state:ActionHandlerTest` の `testHD13*`、`rosanna-state:tests/browser/resend.spec.ts` (JS-4) |
 | `javascript:` URL の遮断 | `434527d` | `SecurityHardeningTest` の `testRT311*`、`tests/Psx/Integration/CompiledOutputTest.php` の `testEncodedJavascriptUrlIsBlocked` |
-| 壊れたスナップショット | `2ec7012` | `SnapshotSerializerTest::testSN5*`、`SnapshotBehaviorFlowTest::testSN27*` |
-| 署名を描画元のページに結びつける | `88399e4` | `ActionHandlerTest::testSG5*`、`testSG7*`、`testAC8*`、`tests/Http/RequestTest.php` の `testSG5*`。host の比較は漏れの 1 |
-| 検証前に Cookie からセッションを再開する | `38631b0` | `CsrfGuardTest::testCS1*`、`SessionActionFlowTest::testCS1*` |
+| 壊れたスナップショット | `2ec7012` | `rosanna-state:SnapshotSerializerTest::testSN5*`、`rosanna-state:SnapshotBehaviorFlowTest::testSN27*` |
+| 署名を描画元のページに結びつける | `88399e4` | `rosanna-state:ActionHandlerTest::testSG5*`、`rosanna-state:testSG7*`、`rosanna-state:testAC8*`、`rosanna-state:tests/Http/RequestTest.php` の `testSG5*`。host の比較は漏れの 1 |
+| 検証前に Cookie からセッションを再開する | `38631b0` | `rosanna-state:CsrfGuardTest::testCS1*`、`rosanna-state:SessionActionFlowTest::testCS1*` |
 | タグ名と属性名、`on*` | `07b7777` | `SecurityHardeningTest::testRT38*`、`RendererOutputTest::testRT34*` |
-| 不正な UTF-8 | `fa3a8ef` | `RendererOutputTest::testRT31*`、`SnapshotSerializerTest::testSN2*` |
+| 不正な UTF-8 | `fa3a8ef` | `RendererOutputTest::testRT31*`、`rosanna-state:SnapshotSerializerTest::testSN2*` |
 | `script` と `style` の出力 | `34b1f1a` | `SecurityHardeningTest::testRT312*`、`testRT314*` |
 | 描画できない子 | `a5c5018` | `RendererOutputTest::testRT32*`、`testRT313*` |
-| 共有キャッシュ | `4621f0f` | `tests/Integration/DeferEndpointFlowTest.php` の `testDF8*`、`testDF9*` |
-| defer の fetch、localStorage、部分送信の失敗 | `739714f` | `tests/browser/defer.spec.ts`、`failure.spec.ts`、`tests/js/defer-cache.test.mjs` |
+| 共有キャッシュ | `4621f0f` | `rosanna-state:tests/Integration/DeferEndpointFlowTest.php` の `testDF8*`、`rosanna-state:testDF9*` |
+| defer の fetch、localStorage、部分送信の失敗 | `739714f` | `rosanna-state:tests/browser/defer.spec.ts`、`rosanna-state:failure.spec.ts`、`rosanna-state:tests/js/defer-cache.test.mjs` |
 
 ### 実際に試して問題がなかったもの
 
@@ -94,12 +94,12 @@ Status: 2026-11-01、usePHP `e073bff` (v0.10.0) の `README.ja.md`、`docs/PSX.m
 
 | 機能 | 分類 | 場所、理由 |
 |---|---|---|
-| `composer require` と `publish` | 動く | `tests/Installer/PublishTest.php` |
-| JavaScript なしのボタンとフォーム | 動く | `tests/Integration/SessionActionFlowTest.php`、`tests/browser/shared-form.spec.ts` |
-| 依存なしの JS による部分更新 | 動く | `tests/browser/morph.spec.ts`、`ActionHandlerTest::testRow1*`、`testRow3*` |
-| `session_start()` を呼ばなくてよい | 動く | `tests/Storage/SessionLifecycleTest.php`、`ReadmeExamplesTest` |
-| フレームワーク統合 (描画より前に action を処理) | 動く | `ReadmeExamplesTest::testClassComponentEmbeddingWorks`。`Response` を返す形に変わった |
-| `examples/` のサンプルアプリ | 未対応 | 作っていない。README の例は `ReadmeExamplesTest` で動かす |
+| `composer require` と `publish` | 動く | `rosanna-state:tests/Installer/PublishTest.php` |
+| JavaScript なしのボタンとフォーム | 動く | `rosanna-state:tests/Integration/SessionActionFlowTest.php`、`rosanna-state:tests/browser/shared-form.spec.ts` |
+| 依存なしの JS による部分更新 | 動く | `rosanna-state:tests/browser/morph.spec.ts`、`rosanna-state:ActionHandlerTest::testRow1*`、`rosanna-state:testRow3*` |
+| `session_start()` を呼ばなくてよい | 動く | `rosanna-state:tests/Storage/SessionLifecycleTest.php`、`rosanna-state:ReadmeExamplesTest` |
+| フレームワーク統合 (描画より前に action を処理) | 動く | `rosanna-state:ReadmeExamplesTest::testClassComponentEmbeddingWorks`。`Response` を返す形に変わった |
+| `examples/` のサンプルアプリ | 動く | `rosanna-state:tests/browser/examples.spec.ts` (hooks を使う 01〜10)、`tests/browser/examples.spec.ts` (状態なしの H と PSX) |
 
 ### ルーター
 
@@ -112,54 +112,54 @@ Status: 2026-11-01、usePHP `e073bff` (v0.10.0) の `README.ja.md`、`docs/PSX.m
 | ミドルウェア、`runRouteMiddleware()` | 落とした | host が `handle()` の前に確かめる (02 の 7 節)。比較は `Request::pagePath()` で行う (漏れの 1) |
 | `disableRouter()`、`NullRouter` | 落とした | ルーターがない |
 | `redirect()` の公開メソッド | 落とした | HD-15 |
-| `RouterInterface::createRedirectUrl()`、`extractSnapshot()` | 動く | `SnapshotUrl`。`tests/Snapshot/SnapshotUrlTest.php` |
-| ルートのキーで状態を分ける | 動く | props の `key`。`ReadmeExamplesTest::testKeysSeparateTheInstances`、`FunctionComponentTest::testRT82*` |
-| `match()` による action の後の再描画 | 動く | `replay`。`ActionHandlerTest::testRow3*`、`testHD6*`、`testHD7*` |
+| `RouterInterface::createRedirectUrl()`、`extractSnapshot()` | 動く | `SnapshotUrl`。`rosanna-state:tests/Snapshot/SnapshotUrlTest.php` |
+| ルートのキーで状態を分ける | 動く | props の `key`。`rosanna-state:ReadmeExamplesTest::testKeysSeparateTheInstances`、`rosanna-state:FunctionComponentTest::testRT82*` |
+| `match()` による action の後の再描画 | 動く | `replay`。`rosanna-state:ActionHandlerTest::testRow3*`、`rosanna-state:testHD6*`、`rosanna-state:testHD7*` |
 
 ### Snapshot の挙動
 
 | 機能 | 分類 | 場所、理由 |
 |---|---|---|
-| Isolated | 動く | `ActionHandlerTest::testRow5*`、`SnapshotBehaviorFlowTest::testRow5*` |
-| Persistent | 動く | `SnapshotBehaviorFlowTest::testPersistentCarriesTheStateInTheRedirect`、`ReadmeExamplesTest` |
-| Session | 動く | `SnapshotBehaviorFlowTest::testSessionBehaviorWritesToTheSessionAndRestoresOnGet`、`SessionSnapshotsTest` |
+| Isolated | 動く | `rosanna-state:ActionHandlerTest::testRow5*`、`rosanna-state:SnapshotBehaviorFlowTest::testRow5*` |
+| Persistent | 動く | `rosanna-state:SnapshotBehaviorFlowTest::testPersistentCarriesTheStateInTheRedirect`、`rosanna-state:ReadmeExamplesTest` |
+| Session | 動く | `rosanna-state:SnapshotBehaviorFlowTest::testSessionBehaviorWritesToTheSessionAndRestoresOnGet`、`rosanna-state:SessionSnapshotsTest` |
 | Shared | 落とした | U-1。ルートのグループの概念 |
 | `isolatedSnapshot()` などの宣言 | 落とした | U-1。`handle()` と `restoreSnapshots()` で指定する |
 | `setSnapshotParam()` | 落とした | U-1。`_rosanna_snapshot` に固定 |
 | 古い単一スロットの値の読み取り | 落とした | usePHP の旧版からの移行用 |
-| 入れ子の Snapshot、`_rosanna_snapshots[]` | 動く | `ActionHandlerTest::testSN13*`〜`testSN19*`、`tests/browser/state.spec.ts` |
+| 入れ子の Snapshot、`_rosanna_snapshots[]` | 動く | `rosanna-state:ActionHandlerTest::testSN13*`〜`rosanna-state:testSN19*`、`rosanna-state:tests/browser/state.spec.ts` |
 
 ### 部分更新
 
 | 機能 | 分類 | 場所、理由 |
 |---|---|---|
-| 差分適用と欄の値の順 | 動く | `tests/browser/morph.spec.ts` |
-| `id` による行の対応 | 動く | `morph.spec.ts` |
-| 親族の順番と兄弟の独立 | 動く | `tests/browser/lock.spec.ts`。トークンのないフォームの Session の action だけは兄弟も待つ (JS-25) |
-| 固定値の action を捨て、`useFormAction` を再送 | 動く | `lock.spec.ts`、`tests/browser/resend.spec.ts` |
-| 失敗を再送しない、`submit-error` | 動く | `tests/browser/failure.spec.ts` |
+| 差分適用と欄の値の順 | 動く | `rosanna-state:tests/browser/morph.spec.ts` |
+| `id` による行の対応 | 動く | `rosanna-state:morph.spec.ts` |
+| 親族の順番と兄弟の独立 | 動く | `rosanna-state:tests/browser/lock.spec.ts`。トークンのないフォームの Session の action だけは兄弟も待つ (JS-25) |
+| 固定値の action を捨て、`useFormAction` を再送 | 動く | `rosanna-state:lock.spec.ts`、`rosanna-state:tests/browser/resend.spec.ts` |
+| 失敗を再送しない、`submit-error` | 動く | `rosanna-state:tests/browser/failure.spec.ts` |
 
 ### コンポーネントと hooks
 
 | 機能 | 分類 | 場所、理由 |
 |---|---|---|
-| `fc()` | 動く | `tests/Runtime/FunctionComponentTest.php` |
-| `fc()` の位置引数の key と保存先 | 動く | `FunctionComponentTest::testRT82KeyCombinations` |
-| `H::component()` | 動く | `tests/Runtime/ElementTest.php` の `testRT67*` |
+| `fc()` | 動く | `rosanna-state:tests/Runtime/FunctionComponentTest.php` |
+| `fc()` の位置引数の key と保存先 | 動く | `rosanna-state:FunctionComponentTest::testRT82KeyCombinations` |
+| `H::component()` にあたる `State\component()` | 動く | `rosanna-state:tests/Runtime/ElementTest.php` の `testRT67*` |
 | 状態なしの素のクロージャ | 動く | `RT113ResolverWorksOnBareCallables` (`tests/Runtime/PsxRendererTest.php`) |
-| key の合成、連番、`int` | 動く | `FunctionComponentTest::testRT82*`、`RenderContextTest::testRT83*` |
-| 同じ ID の共有 | 動く | `FunctionComponentTest::testRT68SameIdSharesState` |
-| Session、Memory、Snapshot | 動く | `ReadmeExamplesTest::testTheThreeStorageTypes`、`tests/Storage/StorageTest.php` |
-| `persist` | 動く | `tests/Component/ComponentPersistTest.php`、`tests/browser/persist.spec.ts` |
-| クラスコンポーネント、`#[Component]` | 動く | `tests/Component/ComponentAttributeTest.php`、`ComponentRegistryTest.php` |
+| key の合成、連番、`int` | 動く | `rosanna-state:FunctionComponentTest::testRT82*`、`rosanna-state:RenderContextTest::testRT83*` |
+| 同じ ID の共有 | 動く | `rosanna-state:FunctionComponentTest::testRT68SameIdSharesState` |
+| Session、Memory、Snapshot | 動く | `rosanna-state:ReadmeExamplesTest::testTheThreeStorageTypes`、`rosanna-state:tests/Storage/StorageTest.php` |
+| `persist` | 動く | `rosanna-state:tests/Component/ComponentPersistTest.php`、`rosanna-state:tests/browser/persist.spec.ts` |
+| クラスコンポーネント、`#[Component]` | 動く | `rosanna-state:tests/Component/ComponentAttributeTest.php`、`rosanna-state:ComponentRegistryTest.php` |
 | `#[Component(requireKey:)]` | 落とした | 01 の 10。usePHP でも読まれていない |
 | `ComponentId` の階層形式 | 落とした | RT-8.4。使われていない |
-| 登録名とクラス名で同じ状態 | 動く | `tests/Runtime/RosannaTest.php` の `testRT121*` |
-| `useState`、`null` の保持、型の保持 | 動く | `HooksTest::testRT71*`、`testRT73*`、`ActionTest::testAC4*` |
-| `useEffect` | 動く | `HooksTest::testRT78*`、`testRT79*`、`ReadmeExamplesTest::testArrayDepsStartASessionAndNullDepsDoNot` |
-| `useFormAction` | 動く | `tests/Runtime/FormActionTest.php`、`ReadmeExamplesTest::testFormInputIsCopiedIntoTheHook` |
-| コンポーネントの外の hooks | 動く | 振る舞いを変えた (`LogicException`)。`HooksTest::testRT74a*` |
-| コンポーネントの合成 (親の setter を子へ) | 動く | `tests/Runtime/ActionFormPlacementTest.php` の `testRT47*`、`tests/browser/state.spec.ts` |
+| 登録名とクラス名で同じ状態 | 動く | `rosanna-state:tests/Runtime/RosannaTest.php` の `testRT121*` |
+| `useState`、`null` の保持、型の保持 | 動く | `rosanna-state:HooksTest::testRT71*`、`rosanna-state:testRT73*`、`rosanna-state:ActionTest::testAC4*` |
+| `useEffect` | 動く | `rosanna-state:HooksTest::testRT78*`、`rosanna-state:testRT79*`、`rosanna-state:ReadmeExamplesTest::testArrayDepsStartASessionAndNullDepsDoNot` |
+| `useFormAction` | 動く | `rosanna-state:tests/Runtime/FormActionTest.php`、`rosanna-state:ReadmeExamplesTest::testFormInputIsCopiedIntoTheHook` |
+| コンポーネントの外の hooks | 動く | 振る舞いを変えた (`LogicException`)。`rosanna-state:HooksTest::testRT74a*` |
+| コンポーネントの合成 (親の setter を子へ) | 動く | `rosanna-state:tests/Runtime/ActionFormPlacementTest.php` の `testRT47*`、`rosanna-state:tests/browser/state.spec.ts` |
 | `RenderContext::setApp()`、`getApp()` | 落とした | 計画書。`RenderContext::run()`、`scope()` にした |
 
 ### HTML と出力
@@ -169,11 +169,11 @@ Status: 2026-11-01、usePHP `e073bff` (v0.10.0) の `README.ja.md`、`docs/PSX.m
 | `H` のタグ、任意の属性、スプレッド | 動く | `tests/Html/ElementAttributesTest.php` |
 | `children` の型 (#118) | 動く | `tests/Html/ElementAttributeTypesTest.php` |
 | 条件付きの描画、配列の平坦化 | 動く | `RendererOutputTest::testRT32*` |
-| `textarea` の `value` | 動く | `ElementAttributesTest::testRT25*`、`ReadmeExamplesTest::testElementsRenderAsDocumented` |
+| `textarea` の `value` | 動く | `ElementAttributesTest::testRT25*`、`rosanna-state:ReadmeExamplesTest::testElementsRenderAsDocumented` |
 | 属性の bool、`aria-*` | 動く | `RendererOutputTest::testRT39*` |
 | `<style>`、`<script>`、foreign content | 動く | `SecurityHardeningTest::testRT312*`、`testRT314*` |
-| 4 つのイベントと未対応イベントの拒否 | 動く | `tests/Runtime/ElementEventsTest.php`、`tests/browser/events.spec.ts` |
-| 生成される HTML の共有フォーム | 動く | 形を変えた (#87)。`ActionFormPlacementTest::testRT47*`、`tests/Runtime/HtmlSizeTest.php` |
+| 4 つのイベントと未対応イベントの拒否 | 動く | `rosanna-state:tests/Runtime/ElementEventsTest.php`、`rosanna-state:tests/browser/events.spec.ts` |
+| 生成される HTML の共有フォーム | 動く | 形を変えた (#87)。`rosanna-state:ActionFormPlacementTest::testRT47*`、`rosanna-state:tests/Runtime/HtmlSizeTest.php` |
 | `_usephp_action_sig` のフィールド | 落とした | AC-20。エンベロープにまとめた |
 
 ### PSX
@@ -197,7 +197,7 @@ Status: 2026-11-01、usePHP `e073bff` (v0.10.0) の `README.ja.md`、`docs/PSX.m
 | `renderPsxComponent()` の公開メソッド | 落とした | `RenderContext::scope()->psx->render()` にした (CP-74) |
 | `<defer>` の文字列の属性 | 落とした | 03 の 1。コンパイルエラーにした |
 | `CompilerInterface` などの差し替え | 落とした | 03 の 1 節。利用者がいない |
-| `compile`、`--check`、`--clean`、`--watch`、`--cache` | 動く | `tests/Psx/CompileCommandTest.php`、`tests/Psx/WatchTest.php`、`tests/Installer/PublishTest.php` の `testCP14*` |
+| `compile`、`--check`、`--clean`、`--watch`、`--cache` | 動く | `tests/Psx/CompileCommandTest.php`、`tests/Psx/WatchTest.php`、`rosanna-state:tests/Installer/PublishTest.php` の `testCP14*` |
 | 未解決と重複の検出 | 動く | `CompileCommandTest::testUnresolvedReferenceExitsOne`、`testDuplicateFqcnShowsBothSourcePaths` |
 | 小文字のファイルを manifest に載せない | 動く | `CompileCommandTest::testLowercaseFilesAreCompiledButNotInTheManifest` |
 | キャッシュの再利用 | 動く | `CompileCommandTest::testSecondRunSkipsUnchangedFiles` |
@@ -214,33 +214,33 @@ Status: 2026-11-01、usePHP `e073bff` (v0.10.0) の `README.ja.md`、`docs/PSX.m
 
 | 機能 | 分類 | 場所、理由 |
 |---|---|---|
-| `fc(defer:)`、`#[Defer]` | 動く | `tests/Component/DeferTest.php`、`ReadmeExamplesTest::testDeferredComponentsAreFetchedFromTheirEndpoints` |
-| deferred manifest の自動登録 | 動く | `tests/Psx/Integration/DeferredManifestTest.php` |
-| `handleDeferred()`、`setDeferPrefix()` | 動く | `tests/Protocol/DeferredEndpointTest.php` |
-| コンポーネントごとの `Cache-Control` | 動く | `DeferredEndpointTest::testDF5*` |
-| 共有キャッシュとセッション | 動く | `DeferEndpointFlowTest::testDF8*` |
-| props のクエリへの変換 | 動く | `DeferTest::testBuildPlaceholderForwardsOptionsAndStripsFrameworkProps`、`DeferredEndpointTest::testDF4*` |
-| 2 段のキャッシュ、`localCacheTtl` | 動く | `tests/js/defer-cache.test.mjs`、`tests/browser/defer.spec.ts` |
-| `clearDeferCache()`、`DEFER_CACHE_VERSION` | 動く | `defer.spec.ts` |
-| `reloadable`、`reloadDefer()`、`data-rosanna-reload-defer` | 動く | `defer.spec.ts` |
-| 入れ子の defer | 動く | `DeferredEndpointTest::testDF6*`、`ActionHandlerTest::testHD9*` |
-| インラインの fallback、nonce | 動く | `tests/Runtime/ClientScriptTest.php`、`defer.spec.ts` |
+| `fc(defer:)`、`#[Defer]` | 動く | `rosanna-state:tests/Component/DeferTest.php`、`rosanna-state:ReadmeExamplesTest::testDeferredComponentsAreFetchedFromTheirEndpoints` |
+| deferred manifest の自動登録 | 動く | `rosanna-state:tests/Psx/Integration/DeferredManifestTest.php` |
+| `handleDeferred()`、`setDeferPrefix()` | 動く | `rosanna-state:tests/Protocol/DeferredEndpointTest.php` |
+| コンポーネントごとの `Cache-Control` | 動く | `rosanna-state:DeferredEndpointTest::testDF5*` |
+| 共有キャッシュとセッション | 動く | `rosanna-state:DeferEndpointFlowTest::testDF8*` |
+| props のクエリへの変換 | 動く | `rosanna-state:DeferTest::testBuildPlaceholderForwardsOptionsAndStripsFrameworkProps`、`rosanna-state:DeferredEndpointTest::testDF4*` |
+| 2 段のキャッシュ、`localCacheTtl` | 動く | `rosanna-state:tests/js/defer-cache.test.mjs`、`rosanna-state:tests/browser/defer.spec.ts` |
+| `clearDeferCache()`、`DEFER_CACHE_VERSION` | 動く | `rosanna-state:defer.spec.ts` |
+| `reloadable`、`reloadDefer()`、`data-rosanna-reload-defer` | 動く | `rosanna-state:defer.spec.ts` |
+| 入れ子の defer | 動く | `rosanna-state:DeferredEndpointTest::testDF6*`、`rosanna-state:ActionHandlerTest::testHD9*` |
+| インラインの fallback、nonce | 動く | `rosanna-state:tests/Runtime/ClientScriptTest.php`、`rosanna-state:defer.spec.ts` |
 
 ### セキュリティの機能と CLI
 
 | 機能 | 分類 | 場所、理由 |
 |---|---|---|
-| `setSnapshotSecret()` | 動く | `RosannaTest::testSN4*`、`testSN9*` |
-| `disableCsrfProtection()`、`getCsrfToken()` | 動く | `$app->csrf()->token()` に変えた。`CsrfGuardTest` |
-| 署名付き action、`signAction()` | 動く | `$app->signer()` に変えた。`tests/Protocol/ActionSignerTest.php` |
-| `trustProxyHeaders()` | 動く | `CsrfGuardTest::testCS7*` |
-| 同一オリジンの redirect | 動く | `SnapshotUrlTest::testSN20*`、`ActionHandlerTest::testHD13*` |
-| 遅延フェッチのガード | 動く | `defer.spec.ts`、`tests/js/urls.test.mjs` |
+| `setSnapshotSecret()` | 動く | `rosanna-state:RosannaTest::testSN4*`、`rosanna-state:testSN9*` |
+| `disableCsrfProtection()`、`getCsrfToken()` | 動く | `$app->csrf()->token()` に変えた。`rosanna-state:CsrfGuardTest` |
+| 署名付き action、`signAction()` | 動く | `$app->signer()` に変えた。`rosanna-state:tests/Protocol/ActionSignerTest.php` |
+| `trustProxyHeaders()` | 動く | `rosanna-state:CsrfGuardTest::testCS7*` |
+| 同一オリジンの redirect | 動く | `rosanna-state:SnapshotUrlTest::testSN20*`、`rosanna-state:ActionHandlerTest::testHD13*` |
+| 遅延フェッチのガード | 動く | `rosanna-state:defer.spec.ts`、`rosanna-state:tests/js/urls.test.mjs` |
 | URL 属性、タグ名、属性名の検証 | 動く | `SecurityHardeningTest` |
-| `publish`、`help`、未知のコマンド | 動く | `PublishTest`。未知のコマンドは exit 1 に変えた |
-| #80 (古い画面の送信) | 動く | `SessionActionFlowTest::testVR4*`、`tests/browser/version.spec.ts`。既知の制約から外れた |
-| #87 (HTML のサイズ) | 動く | `HtmlSizeTest`。残る制約は README の既知の制約 |
-| 秘密鍵ありの最初の action の後のフォーム | 動く | `SessionActionFlowTest::testHD16*`、`tests/browser/session-start.spec.ts`。usePHP は描画でセッションを始めていたので起きなかった。Rosanna は ST-2 を保つので、ページを取り直す (02 の U-7)。残る制約は README の既知の制約 |
+| `publish`、`help`、未知のコマンド | 動く | `rosanna-state:PublishTest`。未知のコマンドは exit 1 に変えた |
+| #80 (古い画面の送信) | 動く | `rosanna-state:SessionActionFlowTest::testVR4*`、`rosanna-state:tests/browser/version.spec.ts`。既知の制約から外れた |
+| #87 (HTML のサイズ) | 動く | `rosanna-state:HtmlSizeTest`。残る制約は README の既知の制約 |
+| 秘密鍵ありの最初の action の後のフォーム | 動く | `rosanna-state:SessionActionFlowTest::testHD16*`、`rosanna-state:tests/browser/session-start.spec.ts`。usePHP は描画でセッションを始めていたので起きなかった。Rosanna は ST-2 を保つので、ページを取り直す (02 の U-7)。残る制約は README の既知の制約 |
 
 ## ブラウザのテストの状態
 

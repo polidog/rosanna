@@ -10,7 +10,6 @@ use PHPUnit\Framework\TestCase;
 use function Polidog\Rosanna\Html\createElement;
 
 use Polidog\Rosanna\Html\H;
-use Polidog\Rosanna\Runtime\ComponentState;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
 use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
@@ -20,7 +19,7 @@ function reservedTypeMarker(mixed $props = null): Element
 {
     ReservedElementTypeTest::$invoked++;
 
-    return H::span(children: 'id=' . ComponentState::current()?->getComponentId());
+    return H::span(children: 'ran');
 }
 
 /** RT-1.2 予約の type は data から作れない。RT-6.7 Element の props から文字列の関数名を実行しない */
@@ -51,7 +50,6 @@ final class ReservedElementTypeTest extends TestCase
     /** @return iterable<string, array{string}> */
     public static function reservedTypes(): iterable
     {
-        yield 'function component' => ['__function_component__'];
         yield 'defer' => ['__defer__'];
     }
 
@@ -85,6 +83,20 @@ final class ReservedElementTypeTest extends TestCase
         self::assertSame(0, self::$invoked);
     }
 
+    /** RT-1.2 `__function_component__` は予約の type でなくなった。実行するものがなく、タグ名として拒否する */
+    public function testRT12FunctionComponentIsRefusedAsAnInvalidTagName(): void
+    {
+        foreach ([createElement('__function_component__', self::attack()), H::__function_component__(...self::attack())] as $element) {
+            try {
+                self::html(static fn() => $element);
+                self::fail('Expected RuntimeException');
+            } catch (\RuntimeException $e) {
+                self::assertStringContainsString('Invalid HTML tag name "__function_component__"', $e->getMessage());
+            }
+        }
+        self::assertSame(0, self::$invoked);
+    }
+
     /** RT-1.2 生成コードが使うので Fragment は残す */
     public function testRT12FragmentStaysAvailableToGeneratedCode(): void
     {
@@ -113,7 +125,8 @@ final class ReservedElementTypeTest extends TestCase
             self::html(static fn() => new Element('div', [], [H::div(children: [$element])]));
             self::fail('Expected RuntimeException');
         } catch (\RuntimeException $e) {
-            self::assertStringContainsString('__component', $e->getMessage());
+            // RT-1.2 `__function_component__` は予約の type ではなくなり、タグ名の検査で落ちる
+            self::assertStringContainsString('Invalid HTML tag name "__function_component__"', $e->getMessage());
         }
         self::assertSame(0, self::$invoked);
     }
@@ -126,7 +139,7 @@ final class ReservedElementTypeTest extends TestCase
         try {
             self::html(static fn() => new Element('div', [], [$element]));
         } catch (\RuntimeException) {
-            // RT-3.6 か RT-6.7 のどちらかの例外になる
+            // 予約でなくなった type はタグ名の検査で拒否される (RT-3.4)
         }
         self::assertSame(0, self::$invoked);
     }
@@ -136,39 +149,8 @@ final class ReservedElementTypeTest extends TestCase
         $element = new Element('__function_component__', ['__component' => static fn() => H::div(), '__props' => 'echo PWNED']);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('__props');
-        H::div(children: [$element]);
-    }
-
-    /** @return iterable<string, array{callable, string}> */
-    public static function callables(): iterable
-    {
-        yield 'function name' => [self::MARKER, self::MARKER . '#0'];
-        yield 'array callable' => [[self::class, 'callMarker'], self::class . '::callMarker#0'];
-        yield 'invokable object' => [new class {
-            public function __invoke(): Element
-            {
-                return ReservedElementTypeTest::callMarker();
-            }
-        }, 'AnonymousFC#0'];
-    }
-
-    /** RT-6.7 props には Closure だけが入る。RT-8.1 名前は元の callable から決まる */
-    #[DataProvider('callables')]
-    public function testRT67ComponentIsNormalizedToAClosureAndKeepsItsName(callable $component, string $id): void
-    {
-        $element = H::component($component);
-        self::assertInstanceOf(\Closure::class, $element->props['__component']);
-
-        self::assertSame("<div><span>id={$id}</span></div>", self::html(static fn() => H::div(children: [H::component($component)])));
-        self::assertSame(1, self::$invoked);
-    }
-
-    public function testRT68DeferStillBuildsItsPlaceholder(): void
-    {
-        $element = H::defer('panel', ['a' => 1], localCache: true);
-
-        self::assertSame('__defer__', $element->type);
-        self::assertSame('<div data-rosanna-defer-url="/_defer/panel?a=1" data-rosanna-defer-cache></div>', self::html(static fn() => $element));
+        // 組み立てでは検査しなくなった。描画でタグ名の検査に落ち、props は読まれない
+        $this->expectExceptionMessage('Invalid HTML tag name "__function_component__"');
+        self::html(static fn() => H::div(children: [$element]));
     }
 }

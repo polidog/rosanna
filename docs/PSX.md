@@ -5,6 +5,7 @@ PSX は、PHP のファイルの中に HTML のようにタグを書ける構文
 
 この文書は v0.0.1 の PSX を説明します。
 
+コンパイラは本体の `polidog/rosanna` にあります。`fc()`、`useState`、`onClick`、`<defer>` は [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state) のものです。状態のないコンポーネントは `return fn (array $props) => <div />;` で書けます。
 ```php
 <?php
 // components/Counter.psx
@@ -12,8 +13,8 @@ declare(strict_types=1);
 
 namespace App;
 
-use function Polidog\Rosanna\Runtime\fc;
-use function Polidog\Rosanna\Runtime\useState;
+use function Polidog\Rosanna\State\fc;
+use function Polidog\Rosanna\State\useState;
 
 return fc(function (array $props) {
     [$count, $setCount] = useState($props['initial'] ?? 0);
@@ -32,14 +33,18 @@ return fc(function (array $props) {
 コンパイラは `polidog/rosanna` に入っています。`composer install --no-dev` の後でも、ビルド工程でも本番サーバーの上でもコンパイルできます。
 
 ```bash
-composer require polidog/rosanna
+composer require polidog/rosanna          # 描画だけ
+composer require polidog/rosanna-state    # 状態も使う (`polidog/rosanna` も入る)
 ```
 
 ## コンパイル
 
 ```bash
-vendor/bin/rosanna compile [--check] [--clean] [--watch] [--cache=PATH] [paths...]
+vendor/bin/rosanna compile [--check] [--clean] [--watch] [--cache=PATH] [paths...]        # 描画だけ
+vendor/bin/rosanna-state compile [--check] [--clean] [--watch] [--cache=PATH] [paths...]  # 状態も使う
 ```
+
+`RosannaState` を使うアプリは `vendor/bin/rosanna-state compile` を使います。`RosannaState::loadComponentManifest()` は、deferred manifest がないか build ID が合わないと例外を投げます。`vendor/bin/rosanna compile` は残っている deferred manifest を消し、`--check` では古いと報告します。
 
 | オプション | 意味 | 既定 |
 |---|---|---|
@@ -62,8 +67,8 @@ vendor/bin/rosanna compile [--check] [--clean] [--watch] [--cache=PATH] [paths..
 var/cache/psx/
 ├── <sha1(ソースの絶対パス)>.php        コンパイル結果
 ├── <sha1(ソースの絶対パス)>.php.meta   ハッシュ、参照、ソースのパス (JSON)
-├── manifest.php                        FQCN から成果物を引く表
-└── deferred-manifest.php               defer の表。項目がなければ作らない
+├── manifest.php                        FQCN から成果物を引く表と build ID
+└── deferred-manifest.php               defer の表と同じ build ID。`rosanna-state compile` だけが書く
 ```
 
 成果物と manifest は一時ファイルと `rename` で置き換えるので、実行中のリクエストが書きかけのファイルを読むことはありません。
@@ -75,13 +80,13 @@ var/cache/psx/
 - `manifest.php` の `file` は成果物の絶対パスです。
 - 成果物のファイル名は、ソースの絶対パスの SHA-1 です。
 
-たとえばコンテナのビルドでは、実行時と同じパス (`/app` など) で `rosanna compile` を実行してください。別のパスでビルドした
+たとえばコンテナのビルドでは、実行時と同じパス (`/app` など) でコンパイルしてください。別のパスでビルドした
 `var/cache/psx` をコピーすると、`file` の指す先がなくなり、読み込みのときに `RuntimeException` になります。
 
 ### コンパイル時に実行されるコード
 
-**`Defer` という文字列を含むコンポーネントのファイルは、コンパイルのときに `require` されます。そのファイルのトップレベルの
-コードが実行されます。**
+**`vendor/bin/rosanna-state compile` では、`Defer` という文字列を含むコンポーネントのファイルが、コンパイルのときに `require` されます。そのファイルのトップレベルの
+コードが実行されます。** `vendor/bin/rosanna compile` は何も実行しません。
 
 deferred manifest を作るには、返り値の `fc(..., defer: new Defer(...))` を実際に見る必要があるからです。文字列の判定は
 コメントや文字列の中でも当たります。したがって、次の点に気を付けてください。
@@ -107,7 +112,7 @@ deferred manifest を作るには、返り値の `fc(..., defer: new Defer(...))
 
 ### コンポーネントの引数
 
-`return` するのはクロージャ、アロー関数、またはそれを包んだ `fc()` です。パラメータは次の順に判定され、manifest に記録されます。
+`return` するのはクロージャ、アロー関数、または `polidog/rosanna-state` の `fc()` でそれを包んだものです。パラメータは次の順に判定され、manifest に記録されます。
 
 | 順 | 条件 | 意味 |
 |---|---|---|
@@ -225,6 +230,7 @@ fn () => <a />;
 
 `<defer>` は、子がなく、`name` があり、属性が `name`、`params`、`fallback`、`localCache`、`reloadable`、`localCacheTtl` の範囲に
 収まるときだけ defer のプレースホルダになります。それ以外は普通の要素です。
+描画には `polidog/rosanna-state` が要ります。状態層なしで描画すると、それを案内する例外になります。
 
 ```php
 <defer name="user-header" params={['id' => 1]} fallback={<p>...</p>} localCache={true} localCacheTtl={60} />

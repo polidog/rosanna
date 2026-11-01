@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Polidog\Rosanna\Runtime;
 
 /**
- * 描画前の木を表す値。type の `Fragment`、`__defer__`、`__function_component__` は予約値で、タグとして出力しない (RT-1.2)。
+ * 描画前の木を表す値。type の `Fragment`、`__defer__` は予約値で、タグとして出力しない (RT-1.2)。
  */
 final readonly class Element
 {

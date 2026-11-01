@@ -66,8 +66,11 @@ final class CompileCommandTest extends TestCase
      */
     private function loadManifest(string $path = ''): array
     {
-        /** @var array<string, array{file: string, parameters: list<array<string, string>>}> */
-        return require $path === '' ? $this->manifest : $path;
+        /** @var array<string, array{file: string, parameters: list<array<string, string>>}> $manifest */
+        $manifest = require $path === '' ? $this->manifest : $path;
+        unset($manifest[PsxRenderer::BUILD_ID_KEY]);
+
+        return $manifest;
     }
 
     /**
@@ -685,6 +688,108 @@ final class CompileCommandTest extends TestCase
         );
         self::assertSame('/c/' . \sha1('/no/such.psx') . '.php', CompileCommand::cachePathFor('/c', '/no/such.psx'));
         self::assertSame('/c/' . \sha1($source) . '.php.meta', CompileCommand::metaPathFor('/c', $source));
+    }
+
+    /** CP-144: manifest を書くたびに build ID を入れる */
+    public function testManifestHasABuildId(): void
+    {
+        $this->component('Counter');
+
+        self::assertSame(0, $this->run_(), $this->output);
+
+        self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/', (string) PsxRenderer::readBuildId($this->manifest));
+    }
+
+    /** CP-144、CP-122: 同じ入力なら同じ値なので、`writeIfChanged` が manifest を書き換えない */
+    public function testSameInputKeepsTheBuildIdAndDoesNotRewriteTheManifest(): void
+    {
+        $source = $this->component('Counter');
+        self::assertSame(0, $this->run_());
+        $first = (string) \file_get_contents($this->manifest);
+        \touch($this->manifest, 1_000_000);
+        // meta を壊して再コンパイルさせても、同じ成果物になる
+        \file_put_contents(CompileCommand::metaPathFor($this->cache, $source), 'x');
+
+        self::assertSame(0, $this->run_(), $this->output);
+        \clearstatcache();
+
+        self::assertSame($first, \file_get_contents($this->manifest));
+        self::assertSame(1_000_000, \filemtime($this->manifest));
+        self::assertSame(0, $this->run_(['--check']), $this->output);
+    }
+
+    /** CP-144: キャッシュから読んだ成果物でも同じ値になる */
+    public function testBuildIdDoesNotDependOnWhatWasCached(): void
+    {
+        $this->component('Counter');
+        $this->component('Other');
+        self::assertSame(0, $this->run_());
+        $first = PsxRenderer::readBuildId($this->manifest);
+
+        self::assertSame(0, $this->run_());
+        self::assertStringContainsString('2 cached', $this->output);
+        self::assertSame($first, PsxRenderer::readBuildId($this->manifest));
+    }
+
+    /** CP-144: 成果物が変われば、manifest の項目が同じでも値が変わる */
+    public function testChangedSourceChangesTheBuildId(): void
+    {
+        $this->component('Counter', '<div />');
+        self::assertSame(0, $this->run_());
+        $first = PsxRenderer::readBuildId($this->manifest);
+
+        $this->component('Counter', '<span />');
+        self::assertSame(0, $this->run_());
+
+        self::assertNotSame($first, PsxRenderer::readBuildId($this->manifest));
+    }
+
+    /** CP-144: `--check` は書かないが、書いたときと同じ build ID で比べる */
+    public function testCheckDetectsAManifestWithAnotherBuildId(): void
+    {
+        $this->component('Counter');
+        self::assertSame(0, $this->run_());
+        $manifest = (string) \file_get_contents($this->manifest);
+        \file_put_contents($this->manifest, (string) \preg_replace('/[0-9a-f]{64}/', \str_repeat('0', 64), $manifest));
+
+        self::assertSame(1, $this->run_(['--check']));
+        self::assertStringContainsString($this->manifest, $this->output);
+    }
+
+    /** CP-136: closure を渡さない compile は残っている deferred manifest を消す */
+    public function testCompileRemovesALeftoverDeferredManifest(): void
+    {
+        $this->component('Counter');
+        self::assertSame(0, $this->run_());
+        $deferred = $this->cache . '/deferred-manifest.php';
+        \file_put_contents($deferred, "<?php\nreturn [];\n");
+
+        self::assertSame(0, $this->run_(), $this->output);
+
+        self::assertFileDoesNotExist($deferred);
+        self::assertSame(0, $this->run_(['--check']), $this->output);
+    }
+
+    /** CP-136: 渡した closure は build ID を受け、消す処理の代わりに動く */
+    public function testAfterManifestReceivesTheBuildIdInsteadOfTheRemoval(): void
+    {
+        $source = $this->component('Counter');
+        self::assertSame(0, $this->run_());
+        $deferred = $this->cache . '/deferred-manifest.php';
+        \file_put_contents($deferred, "<?php\nreturn [];\n");
+        $calls = [];
+
+        \ob_start();
+        $code = new CompileCommand(static function (array $components, string $cacheDir, string $buildId, bool $check) use (&$calls): array {
+            $calls[] = [$components, $cacheDir, $buildId, $check];
+
+            return $check ? ['stale-path'] : [];
+        })->run([], $this->dir);
+        \ob_get_clean();
+
+        self::assertSame(0, $code);
+        self::assertFileExists($deferred);
+        self::assertSame([[['App\\Counter' => $source], $this->cache, PsxRenderer::readBuildId($this->manifest), false]], $calls);
     }
 
     /** CP-126: メッセージは標準出力に書く */

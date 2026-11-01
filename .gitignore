@@ -5,7 +5,7 @@ composer.lock
 .DS_Store
 
 /var/cache/psx/
-/examples/10-psx/var/
+/examples/psx/var/
 
 /node_modules/
 /test-results/

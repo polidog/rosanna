@@ -75,7 +75,7 @@ final class RuntimeWithoutCompilerTest extends TestCase
             $app = new \Polidog\Rosanna\Rosanna();
             $app->loadComponentManifest(%MANIFEST%);
             $html = \Polidog\Rosanna\Runtime\RenderContext::run(
-                $app->scope(new \Polidog\Rosanna\Http\Request('GET', '/', '/', '')),
+                $app->scope(),
                 static fn () => $app->renderElement(
                     \Polidog\Rosanna\Runtime\RenderContext::scope()->psx->render('App\\Foo', ['v' => 'ok']),
                 ),
