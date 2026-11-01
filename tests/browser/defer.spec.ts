@@ -184,6 +184,24 @@ test('HD-9: defer の中のコンポーネントの action はページに送ら
   await expect(page.locator('#deferred-counter .n')).toHaveText('2');
 });
 
+for (const storage of ['memory', 'session', 'snapshot']) {
+  test(`HD-9: 同じ ID を含む 2 つの defer で、後ろの defer の部分更新が前の defer の内容にならない (${storage})`, async ({ page }) => {
+    await page.goto(`/defer-same/${storage}`);
+    const a = page.locator('#same-a');
+    const b = page.locator('#same-b');
+    await expect(a.locator('.n')).toHaveText('a=0');
+    await b.locator('.inc').click();
+    await expect(b.locator('.n')).toHaveText('b=1');
+    await b.locator('.inc').click();
+    await expect(b.locator('.n')).toHaveText('b=2');
+    await idle(page);
+    // a の場所に b の内容が入らない。Session の状態はインスタンス ID ごとなので a の値は問わない
+    await expect(page.locator('#same-a')).toHaveCount(1);
+    await expect(page.locator('#same-b')).toHaveCount(1);
+    await expect(a.locator('.n')).toHaveText(storage === 'session' ? /^a=\d+$/ : 'a=0');
+  });
+}
+
 test('VR-6: defer で後から現れる Snapshot も照合の対象になる', async ({ page, posts }) => {
   await page.goto('/defer');
   const scope = page.locator('#deferred-snapshot');

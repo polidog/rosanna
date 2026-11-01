@@ -74,6 +74,7 @@ final class Renderer
         private readonly ?StorageType $storageType,
         private readonly ?SnapshotPersist $persist,
         private readonly ?string $deferQuery,
+        private readonly ?string $deferName,
         private readonly ?SnapshotSerializer $snapshotSerializer,
         private readonly ActionSigner $signer,
         private readonly CsrfGuard $csrf,
@@ -515,6 +516,9 @@ final class Renderer
         }
         if ($this->deferQuery !== null) {
             $fields .= self::hiddenField('_rosanna_defer_query', $this->deferQuery);
+        }
+        if ($this->deferName !== null) {
+            $fields .= self::hiddenField('_rosanna_defer', $this->deferName);
         }
 
         return $fields;

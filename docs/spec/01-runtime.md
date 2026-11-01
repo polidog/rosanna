@@ -550,6 +550,7 @@ final class RendererFactory
         ?StorageType $storage = null,
         ?SnapshotPersist $persist = null,
         ?string $deferQuery = null,
+        ?string $deferName = null,
     ): Renderer;
 }
 

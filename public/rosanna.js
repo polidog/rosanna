@@ -824,7 +824,7 @@
         mirror.write(instanceKey(wrapper), wrapper.getAttribute('data-rosanna-snapshot'));
     }
 
-    // AC-21、JS-3、JS-14、HD-11
+    // AC-21、JS-3、JS-14、HD-9、HD-11
     function buildRestoreData(component, snapshot) {
         const id = component.getAttribute('data-rosanna');
         const data = new FormData();
@@ -837,6 +837,8 @@
         if (csrf) data.set('_rosanna_csrf', csrf.value);
         const deferQuery = ownField('_rosanna_defer_query');
         if (deferQuery) data.set('_rosanna_defer_query', deferQuery.value);
+        const defer = ownField('_rosanna_defer');
+        if (defer) data.set('_rosanna_defer', defer.value);
         setDescendantSnapshots(data, component);
         return data;
     }
@@ -1691,8 +1693,13 @@
             const boundary = next.parentElement ? next.parentElement.closest('[data-rosanna],[data-rosanna-defer-url]') : null;
             return !boundary || !boundary.matches('[data-rosanna]');
         });
+        // HD-9 別の defer の中のインスタンスは ID が重なるので、同じ ID は出現順で対応を取る
+        const occurrences = new Map();
         for (const next of outermost) {
-            const live = findInstance(next.getAttribute('data-rosanna'));
+            const id = next.getAttribute('data-rosanna');
+            const occurrence = occurrences.get(id) || 0;
+            occurrences.set(id, occurrence + 1);
+            const live = document.querySelectorAll('[data-rosanna="' + CSS.escape(id) + '"]')[occurrence];
             // 親の差分で挿入された領域の中は、応答のノードがそのままライブになっている
             if (!live || live === next || heldForRestore.has(live)) continue;
             syncWrapperAttributes(live, next);
