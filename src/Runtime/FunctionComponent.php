@@ -14,7 +14,7 @@ use Polidog\Rosanna\Storage\StorageType;
 /**
  * `fc()` が返す、インスタンスの state を持つコンポーネント。
  */
-final class FunctionComponent
+final class FunctionComponent implements AcceptsArgumentResolver
 {
     /** @var (\Closure(array<string, mixed>): list<mixed>)|null */
     private ?\Closure $argumentResolver = null;

@@ -27,7 +27,8 @@
         },
         "files": [
             "src/Html/Elements.php",
-            "src/Runtime/Hooks.php"
+            "src/Runtime/Hooks.php",
+            "src/Runtime/StateBootstrap.php"
         ]
     },
     "autoload-dev": {

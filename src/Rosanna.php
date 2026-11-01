@@ -21,7 +21,6 @@ use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\PsxArgumentResolver;
 use Polidog\Rosanna\Runtime\PsxRenderer;
 use Polidog\Rosanna\Runtime\RenderContext;
-use Polidog\Rosanna\Runtime\Renderer;
 use Polidog\Rosanna\Runtime\RendererFactory;
 use Polidog\Rosanna\Runtime\RenderScope;
 use Polidog\Rosanna\Snapshot\SnapshotBehavior;
@@ -68,7 +67,7 @@ final class Rosanna
 
     private bool $trustProxyHeaders = false;
 
-    private string $deferPrefix = Renderer::DEFAULT_DEFER_PREFIX;
+    private string $deferPrefix = RendererFactory::DEFAULT_DEFER_PREFIX;
 
     private DeferredRegistry $deferred;
 

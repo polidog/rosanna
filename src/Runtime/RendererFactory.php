@@ -15,11 +15,13 @@ use Polidog\Rosanna\Storage\StorageType;
  */
 final class RendererFactory
 {
+    public const DEFAULT_DEFER_PREFIX = '/_defer';
+
     public function __construct(
         private readonly ?SnapshotSerializer $snapshotSerializer,
         private readonly ActionSigner $signer,
         private readonly CsrfGuard $csrf,
-        private readonly string $deferPrefix = Renderer::DEFAULT_DEFER_PREFIX,
+        private readonly string $deferPrefix = self::DEFAULT_DEFER_PREFIX,
     ) {}
 
     /**
@@ -33,7 +35,14 @@ final class RendererFactory
         ?SnapshotPersist $persist = null,
         ?string $deferQuery = null,
         ?string $deferName = null,
-    ): Renderer {
-        return new Renderer($rootId, $storage, $persist, $deferQuery, $deferName, $this->snapshotSerializer, $this->signer, $this->csrf, $this->deferPrefix);
+    ): ComponentRenderer {
+        return new ComponentRenderer(
+            $rootId,
+            $storage,
+            $persist,
+            $this->snapshotSerializer,
+            $this->signer,
+            new Renderer(new ActionFormExtension($rootId, $deferQuery, $deferName, $this->snapshotSerializer, $this->signer, $this->csrf, $this->deferPrefix)),
+        );
     }
 }

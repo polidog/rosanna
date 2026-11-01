@@ -138,7 +138,7 @@ final class PsxRenderer
      */
     private function bindArguments(string $fqcn, array $metadata, callable $component): callable
     {
-        if ($component instanceof FunctionComponent) {
+        if ($component instanceof AcceptsArgumentResolver) {
             return $component->withArgumentResolver(fn(array $props): array => $this->argumentResolver->resolve($fqcn, $metadata, $props));
         }
 

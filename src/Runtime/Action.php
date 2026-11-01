@@ -6,7 +6,7 @@ namespace Polidog\Rosanna\Runtime;
 
 use Polidog\Rosanna\Storage\StorageType;
 
-final readonly class Action
+final readonly class Action implements EventBinding
 {
     public const SET_STATE = 'setState';
     public const SET_FIELDS = 'setFields';

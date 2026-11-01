@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\Html;
 
-use Polidog\Rosanna\Component\BaseComponent;
-use Polidog\Rosanna\Component\Component;
 use Polidog\Rosanna\Component\Defer;
 use Polidog\Rosanna\Runtime\Action;
 use Polidog\Rosanna\Runtime\ComponentState;
-use Polidog\Rosanna\Runtime\ComponentWrapper;
 use Polidog\Rosanna\Runtime\Element;
+use Polidog\Rosanna\Runtime\EventBinding;
+use Polidog\Rosanna\Runtime\EventResolver;
 use Polidog\Rosanna\Runtime\Renderable;
 use Polidog\Rosanna\Runtime\RenderContext;
+use Polidog\Rosanna\Runtime\ResolvesItself;
 use Polidog\Rosanna\Storage\StorageType;
 
 /**
@@ -26,7 +26,7 @@ final class H
         ?string $className = null,
         ?string $id = null,
         ?string $style = null,
-        Action|\Closure|null $onClick = null,
+        EventBinding|\Closure|null $onClick = null,
         array|Element|Renderable|\Stringable|string|int|float|bool|null $children = null,
         mixed ...$attrs,
     ): Element {
@@ -38,7 +38,7 @@ final class H
         ?string $className = null,
         ?string $id = null,
         ?string $style = null,
-        Action|\Closure|null $onClick = null,
+        EventBinding|\Closure|null $onClick = null,
         array|Element|Renderable|\Stringable|string|int|float|bool|null $children = null,
         mixed ...$attrs,
     ): Element {
@@ -130,7 +130,7 @@ final class H
         ?string $className = null,
         ?string $id = null,
         ?string $style = null,
-        Action|\Closure|null $onClick = null,
+        EventBinding|\Closure|null $onClick = null,
         array|Element|Renderable|\Stringable|string|int|float|bool|null $children = null,
         mixed ...$attrs,
     ): Element {
@@ -397,7 +397,7 @@ final class H
         ?string $className = null,
         ?string $id = null,
         ?string $style = null,
-        Action|\Closure|null $onClick = null,
+        EventBinding|\Closure|null $onClick = null,
         array|Element|Renderable|\Stringable|string|int|float|bool|null $children = null,
         mixed ...$attrs,
     ): Element {
@@ -563,7 +563,7 @@ final class H
         ?string $className = null,
         ?string $id = null,
         ?string $style = null,
-        Action|\Closure|null $onSubmit = null,
+        EventBinding|\Closure|null $onSubmit = null,
         array|Element|Renderable|\Stringable|string|int|float|bool|null $children = null,
         mixed ...$attrs,
     ): Element {
@@ -591,8 +591,8 @@ final class H
         ?string $className = null,
         ?string $id = null,
         ?string $style = null,
-        Action|\Closure|null $onChange = null,
-        Action|\Closure|null $onInput = null,
+        EventBinding|\Closure|null $onChange = null,
+        EventBinding|\Closure|null $onInput = null,
         mixed ...$attrs,
     ): Element {
         return self::element('input', get_defined_vars());
@@ -614,8 +614,8 @@ final class H
         ?string $className = null,
         ?string $id = null,
         ?string $style = null,
-        Action|\Closure|null $onChange = null,
-        Action|\Closure|null $onInput = null,
+        EventBinding|\Closure|null $onChange = null,
+        EventBinding|\Closure|null $onInput = null,
         array|Element|Renderable|\Stringable|string|int|float|bool|null $children = null,
         mixed ...$attrs,
     ): Element {
@@ -631,7 +631,7 @@ final class H
         ?string $className = null,
         ?string $id = null,
         ?string $style = null,
-        Action|\Closure|null $onClick = null,
+        EventBinding|\Closure|null $onClick = null,
         array|Element|Renderable|\Stringable|string|int|float|bool|null $children = null,
         mixed ...$attrs,
     ): Element {
@@ -649,7 +649,7 @@ final class H
         ?string $className = null,
         ?string $id = null,
         ?string $style = null,
-        Action|\Closure|null $onChange = null,
+        EventBinding|\Closure|null $onChange = null,
         array|Element|Renderable|\Stringable|string|int|float|bool|null $children = null,
         mixed ...$attrs,
     ): Element {
@@ -871,7 +871,7 @@ final class H
         ?string $className = null,
         ?string $id = null,
         ?string $style = null,
-        Action|\Closure|null $onClick = null,
+        EventBinding|\Closure|null $onClick = null,
         array|Element|Renderable|\Stringable|string|int|float|bool|null $children = null,
         mixed ...$attrs,
     ): Element {
@@ -1332,9 +1332,9 @@ function createElement(string $type, array $params): Element
             case 'onChange':
             case 'onInput':
             case 'onSubmit':
-                $action = resolveEventAction($name, $value);
-                if ($action !== null) {
-                    $props['wire:' . strtolower(substr($name, 2))] = $action;
+                $binding = EventResolver::resolve($name, $value);
+                if ($binding !== null) {
+                    $props['wire:' . strtolower(substr($name, 2))] = $binding;
                 }
                 break;
 
@@ -1392,8 +1392,8 @@ function resolveRenderables(array $children): array
             }
         } elseif ($child instanceof Element && $child->type === '__function_component__') {
             $resolved[] = resolveFunctionComponent($child);
-        } elseif ($child instanceof BaseComponent) {
-            $resolved[] = resolveClassComponent($child);
+        } elseif ($child instanceof ResolvesItself) {
+            $resolved[] = $child->resolve();
         } elseif ($child instanceof Renderable) {
             $resolved[] = $child->render();
         } else {
@@ -1402,41 +1402,6 @@ function resolveRenderables(array $children): array
     }
 
     return $resolved;
-}
-
-/**
- * state が設定済みのインスタンスは、新しい番号を取らず同じ状態を読む (RT-5.4)。
- *
- * @internal
- */
-function resolveClassComponent(BaseComponent $component): Element
-{
-    $attribute = Component::forClass($component::class);
-    $parentState = ComponentState::current();
-    $state = $component->getComponentState();
-
-    if ($state === null) {
-        $instanceId = RenderContext::beginComponent($component::getComponentName());
-    } else {
-        RenderContext::enterComponent($state->getComponentId());
-    }
-
-    try {
-        if ($state === null) {
-            $state = ComponentState::getInstance($instanceId, $attribute->storageType ?? StorageType::Session);
-            $component->setComponentState($state);
-        } else {
-            ComponentState::setCurrent($state);
-        }
-        ComponentState::reset();
-        $result = $component->render();
-
-        // スナップショットには描画で使われたフックの値が要る
-        return new Element('div', ComponentWrapper::propsInScope($state, $attribute?->persist), [$result]);
-    } finally {
-        RenderContext::endComponent();
-        ComponentState::setCurrent($parentState);
-    }
 }
 
 /**
