@@ -8,15 +8,15 @@ Status: 2026-11-01、usePHP `e073bff` (v0.10.0) の `README.ja.md`、`docs/PSX.m
 - **落とした**: 計画書か仕様の決定で意図して作らないもの。
 - **未対応**: 使えない、または動くことを確かめていないもの。
 
-テストのパスはリポジトリのルートからである。状態層の分離 (polidog/rosanna#7) の後の場所を書く。`` で始まるものは [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state) のテストで、印のないものは `polidog/rosanna` のテストである。短い名前 (`ClassTest::testX*`) も同じ。
+テストのパスはリポジトリのルートからである。状態層の分離 (polidog/rosanna#7) の後の場所を書く。`rosanna-state:` で始まるものは [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state) のテストで、印のないものは `polidog/rosanna` のテストである。短い名前 (`ClassTest::testX*`) も同じ。
 
 ## 集計
 
 | 分類 | 件数 |
 |---|---|
-| 動く | 82 |
+| 動く | 83 |
 | 落とした | 22 |
-| 未対応 | 2 |
+| 未対応 | 1 |
 
 ## セキュリティの照合
 
@@ -99,7 +99,7 @@ Status: 2026-11-01、usePHP `e073bff` (v0.10.0) の `README.ja.md`、`docs/PSX.m
 | 依存なしの JS による部分更新 | 動く | `rosanna-state:tests/browser/morph.spec.ts`、`rosanna-state:ActionHandlerTest::testRow1*`、`rosanna-state:testRow3*` |
 | `session_start()` を呼ばなくてよい | 動く | `rosanna-state:tests/Storage/SessionLifecycleTest.php`、`rosanna-state:ReadmeExamplesTest` |
 | フレームワーク統合 (描画より前に action を処理) | 動く | `rosanna-state:ReadmeExamplesTest::testClassComponentEmbeddingWorks`。`Response` を返す形に変わった |
-| `examples/` のサンプルアプリ | 未対応 | 作っていない。README の例は `rosanna-state:ReadmeExamplesTest` で動かす |
+| `examples/` のサンプルアプリ | 動く | `rosanna-state:tests/browser/examples.spec.ts` (hooks を使う 01〜10)、`tests/browser/examples.spec.ts` (状態なしの H と PSX) |
 
 ### ルーター
 

@@ -322,7 +322,7 @@ final class RequestLifecycle
 **振る舞い**
 
 - **RT-9.1** `RenderContext` が持つスコープの型は `RenderScope` だけとする。`Rosanna` 型を返す API を作らない。
-- **RT-9.2** `run` の入れ子では、抜けるときに外側のスコープに戻す (`tests/Runtime/AppContextRestoreTest.php`)。
+- **RT-9.2** `run` の入れ子では、抜けるときに外側のスコープに戻す (`tests/Runtime/RenderContextTest.php`)。
 - **RT-9.3** ルート情報を持たない。分割設計の `RenderScope::$route` と `RouteInfo` は作らない。
 - **RT-9.4** 状態層に移した (`StateScope::isDeferredEndpointTarget()`。[状態層の 01](https://github.com/polidog/rosanna-state/blob/main/docs/spec/01-runtime.md) の 9 節)。
 - **RT-9.5** 状態層に移した (`RendererFactory`)。署名、CSRF、serializer、defer の prefix、`rootId` はすべて状態層のもので、本体の `RenderScope` は `$state` の slot で持つだけである。
@@ -422,7 +422,7 @@ final class Rosanna
 
 **テスト**
 
-- 入れ子の `renderElement` で外側のスコープが戻ること (`AppContextRestoreTest.php`)。
+- 入れ子の `renderElement` で外側のスコープが戻ること (`RosannaTest::testRT129InnerRenderUsesTheOuterScope`、`RenderContextTest::testRT92*`)。
 - `H` と PSX の描画で状態層のコードが動かず、セッションが始まらず、`data-rosanna` が出力されないこと。
 - README の例を実際に動かすこと。
 
