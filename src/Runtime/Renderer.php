@@ -75,10 +75,6 @@ final class Renderer
         return match ($element->type) {
             'Fragment' => $this->renderChildren($element->children),
             '__defer__' => $this->renderDeferred($element),
-            '__function_component__' => throw new \RuntimeException(
-                'Function component Element reached the renderer unresolved. '
-                . 'Place H::component(...) inside a children array so it is expanded before rendering.',
-            ),
             default => $this->renderTag($element),
         };
     }

@@ -7,30 +7,42 @@ usePHP のコードはコピーせず、ここに書いた振る舞いを新し�
 
 | 文書 | 範囲 | 要件 ID |
 |---|---|---|
-| [01-runtime.md](01-runtime.md) | `H`、Renderer、Component、hooks、描画スコープ、本体の描画 API、publish | `RT-` |
-| [02-state-and-actions.md](02-state-and-actions.md) | Storage、Snapshot、Action、署名、CSRF、バージョン照合、defer、`rosanna.js` | `RQ-` `ST-` `SN-` `AC-` `SG-` `CS-` `VR-` `HD-` `DF-` `JS-` |
+| [01-runtime.md](01-runtime.md) | `H`、Renderer、`RenderExtension`、描画スコープ、PSX の読み込み、`Rosanna` の描画 API、`vendor/bin/rosanna` | `RT-` |
 | [03-compiler.md](03-compiler.md) | PSX、コンパイラ (`src/Psx/`) | `CP-` |
+| [`polidog/rosanna-state` の 01](https://github.com/polidog/rosanna-state/blob/main/docs/spec/01-runtime.md) | フォームの束縛と配置、Component、hooks、状態層のスコープ、`RosannaState` の API、publish | `RT-` (RT-4〜8、RT-9.4、RT-9.5、RT-10、RT-12、RT-13) |
+| [`polidog/rosanna-state` の 02](https://github.com/polidog/rosanna-state/blob/main/docs/spec/02-state-and-actions.md) | Storage、Snapshot、Action、署名、CSRF、バージョン照合、defer、`rosanna.js` | `RQ-` `ST-` `SN-` `AC-` `SG-` `CS-` `VR-` `HD-` `DF-` `JS-` |
+
+要件 ID は状態層を分離した後も番号を変えない。テストやコメントからの参照を切らないため。状態層の文書の一覧は [`polidog/rosanna-state` の docs/spec/README.md](https://github.com/polidog/rosanna-state/blob/main/docs/spec/README.md) にある。
 
 実装の順番は計画書の「作業の順番」に従う。
 
 ## 文書をまたぐ契約
 
+依存の向きは `polidog/rosanna-state` から `polidog/rosanna` への一方向で、本体は状態層の名前を参照しない。「状態層の」と書いたものは `polidog/rosanna-state` の文書である。
+
 | 契約 | 定義 |
 |---|---|
-| `RenderContext::scope()`、`RenderScope` (`$signer`、`$signingScope` を含む) | 01 の 9 節 |
-| `Rosanna::scope(Request $request, ?string $deferName = null)` | 01 の 12 節 |
-| `Http\Request`、`Http\Response` | 02 の 0 節 |
-| `Action` (`withVersion()` を含む)、action の JSON の `version` | 02 の 3 節、VR-1 |
-| `StateDiff`、`ActionEnvelope`、共有フォーム | 02 の 3.1、3.2 節、01 の RT-4.7 |
-| `ActionSigner`、`actions()->handle()`、`CsrfGuard` | 02 の 4、5、7 節 |
+| `RenderContext::scope()`、`RenderScope` (`$psx` と slot の `$state`) | 01 の 9 節 |
+| `StateScope` (`$signer`、`$signingScope`、`$renderers` を含む)。`RenderScope::$state` に入る | 状態層の 01 の 9 節 |
+| `Rosanna::scope()`、`Rosanna` の `$extensionFactory` と `$scopeFactory` | 01 の 12 節 |
+| `RosannaState::scope(Request $request, ?string $deferName = null)` | 状態層の 01 の 12 節 |
+| `RenderExtension` (フォームの配置と `__defer__`) | 01 の RT-3.15。実装は状態層の RT-4 |
+| `EventBinding`、`EventResolver` (`onClick` などの値)、`Action` の実装 | 01 の RT-2.6。状態層の 02 の 3 節 |
+| `ResolvesItself` (`BaseComponent`、`State\component()`) | 01 の RT-2.8。状態層の RT-5.4、RT-6.7 |
+| `AcceptsArgumentResolver` (`FunctionComponent`) | 01 の RT-11.3 |
+| `Http\Request`、`Http\Response` (`State\` の下) | 状態層の 02 の 0 節 |
+| `Action` (`withVersion()` を含む)、action の JSON の `version` | 状態層の 02 の 3 節、VR-1 |
+| `StateDiff`、`ActionEnvelope`、共有フォーム | 状態層の 02 の 3.1、3.2 節、状態層の RT-4.7 |
+| `ActionSigner`、`actions()->handle()`、`CsrfGuard` | 状態層の 02 の 4、5、7 節 |
 | 生成コードが呼ぶ `scope()->psx->render()`、`createElement`、`H::defer` | 01 の 2、11 節、03 の生成コードの節 |
-| `PsxRenderer::MANIFEST_FILENAME`、`DEFERRED_MANIFEST_FILENAME` | 01 の 11 節、CP-137 |
-| manifest と deferred manifest の形式 | 03 の 8 節。読むのは RT-11.5、登録は DF-13 |
-| `RequestLifecycle::reset()` | RT-9.6 |
+| `PsxRenderer::MANIFEST_FILENAME`、`DEFERRED_MANIFEST_FILENAME`、`BUILD_ID_KEY` | 01 の 11 節、CP-137、CP-144 |
+| manifest と deferred manifest の形式、build ID | 03 の 8 節。manifest を読むのは RT-11.5、deferred manifest を読んで照合し登録するのは状態層の DF-13 |
+| `CompileCommand` の manifest の後の `\Closure` | CP-135、CP-136。渡すのは状態層の RT-13.7 |
+| `RequestLifecycle::reset()`、`onReset()` | RT-9.6。登録は状態層の RT-9.6 |
 
 ## 決定事項
 
-2026-11-01 に、すべて推奨どおりに決めた (02 U-7 は利用者の判断で案 A に決めた)。各文書の該当箇所は確定の書き方に直してある。検討の記録は各文書の「決定の記録」の節にある。
+2026-11-01 に、すべて推奨どおりに決めた (02 U-7 は利用者の判断で案 A に決めた)。各文書の該当箇所は確定の書き方に直してある。検討の記録は各文書の「決定の記録」の節にある。02 U-* は `polidog/rosanna-state` の 02 にあり、01 の項目のうち状態層のものも、状態層を分離する前の記録として本体の 01 に残している。
 
 ### 振る舞いが大きく変わるもの
 

@@ -7,10 +7,11 @@ namespace Polidog\Rosanna\Tests\Psx;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Polidog\Rosanna\Psx\CompileCommand;
+use Polidog\Rosanna\Runtime\PsxRenderer;
 use Polidog\Rosanna\Tests\Psx\Support\TemporaryDirectory;
 
 /**
- * §8: manifest の形式と、ランタイムなしで確かめられる deferred manifest の動作。
+ * §8: manifest の形式。
  */
 final class ManifestTest extends TestCase
 {
@@ -53,8 +54,11 @@ final class ManifestTest extends TestCase
      */
     private function manifest(): array
     {
-        /** @var array<string, array{file: string, parameters: list<array<string, string>>}> */
-        return require $this->cache . '/manifest.php';
+        /** @var array<string, array{file: string, parameters: list<array<string, string>>}> $manifest */
+        $manifest = require $this->cache . '/manifest.php';
+        unset($manifest[PsxRenderer::BUILD_ID_KEY]);
+
+        return $manifest;
     }
 
     /**
@@ -88,7 +92,7 @@ final class ManifestTest extends TestCase
         yield 'nullable scalar first' => ['fn (?int $x) => <a />', [['kind' => 'null', 'name' => 'x']]];
         yield 'two classes and null' => ['fn (array $props, A|B|null $x) => <a />', [$props, ['kind' => 'null', 'name' => 'x']]];
         yield 'fc' => ['fc(fn (array $props, Repo $repo) => <a />)', [$props, $repo]];
-        yield 'fc fully qualified' => ['\\Polidog\\Rosanna\\Runtime\\fc(fn (array $props) => <a />)', [$props]];
+        yield 'fc fully qualified' => ['\\Polidog\\Rosanna\\State\\fc(fn (array $props) => <a />)', [$props]];
         yield 'fc with a closure' => ['fc(function (array $props, Repo $repo) { return <a />; })', [$props, $repo]];
         yield 'fc with a variable' => ['fc($callable)', []];
         yield 'not a closure' => ['"strlen"', []];
@@ -187,6 +191,7 @@ final class ManifestTest extends TestCase
             ]],
             $this->manifest(),
         );
+        self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/', (string) PsxRenderer::readBuildId($this->cache . '/manifest.php'));
     }
 
     /** CP-136 */
@@ -200,81 +205,13 @@ final class ManifestTest extends TestCase
         self::assertFileDoesNotExist($this->cache . '/deferred-manifest.php');
     }
 
-    /** CP-135: `Defer` の文字列を含まないファイルは実行しない */
-    public function testFileWithoutTheDeferStringIsNotRequired(): void
-    {
-        $this->source('Foo', "<?php\nthrow new \\Exception('must not run');\nreturn fn () => <a />;");
-
-        self::assertSame(0, $this->compile(), $this->output);
-        self::assertFileDoesNotExist($this->cache . '/deferred-manifest.php');
-    }
-
-    /** CP-135: 小文字のファイルは manifest に載らないので実行しない */
-    public function testLowercaseFileIsNotRequired(): void
-    {
-        $this->source('page', "<?php\n// Defer\nthrow new \\Exception('must not run');\nreturn fn () => <a />;");
-
-        self::assertSame(0, $this->compile(), $this->output);
-    }
-
-    /** §8 のエラー: 読み込みの例外は exit 1 で、ファイルと内容を表示する */
-    public function testRequireFailureExitsOneWithFileAndMessage(): void
-    {
-        $source = $this->source('Foo', "<?php\n// Defer\nthrow new \\Exception('boom at the top');\nreturn fn () => <a />;");
-
-        self::assertSame(1, $this->compile());
-        self::assertStringContainsString($source, $this->output);
-        self::assertStringContainsString(CompileCommand::cachePathFor($this->cache, $source), $this->output);
-        self::assertStringContainsString('boom at the top', $this->output);
-    }
-
-    /** CP-135: 含んでいても FunctionComponent でなければ集めない */
-    public function testFileMentioningDeferThatIsNotAFunctionComponent(): void
-    {
-        $this->source('Foo', "<?php\n// Defer\nreturn fn () => 'x';");
-
-        self::assertSame(0, $this->compile(), $this->output);
-        self::assertFileDoesNotExist($this->cache . '/deferred-manifest.php');
-    }
-
-    /** CP-135: トップレベルの出力がコマンドの出力へ混ざらない */
-    public function testTopLevelOutputIsDiscarded(): void
-    {
-        $this->source('Foo', "<?php\n// Defer\necho 'leak';\nreturn fn () => 'x';");
-
-        self::assertSame(0, $this->compile(), $this->output);
-        self::assertStringNotContainsString('leak', $this->output);
-    }
-
-    /** CP-123: 古い成果物を読み込むと、defer の宣言を読みに require してしまう */
-    public function testCheckDoesNotLoadAStaleArtifactThatDeclaresDefer(): void
-    {
-        $source = $this->source('Foo', "<?php\nuse Polidog\\Rosanna\\Runtime\\FunctionComponent;\n// Defer\nreturn fn () => 'x';");
-        self::assertSame(0, $this->compile(), $this->output);
-
-        $marker = $this->dir . '/loaded';
-        \file_put_contents(
-            CompileCommand::cachePathFor($this->cache, $source),
-            "<?php\n// Defer\n\\file_put_contents(" . \var_export($marker, true) . ", 'x');\nreturn fn () => 'x';\n",
-        );
-        $this->source('Foo', "<?php\nuse Polidog\\Rosanna\\Runtime\\FunctionComponent;\n// Defer changed\nreturn fn () => 'x';");
-
-        \ob_start();
-        $code = new CompileCommand()->run(['--check'], $this->dir);
-        $output = (string) \ob_get_clean();
-
-        self::assertSame(1, $code);
-        self::assertStringContainsString('Out of date', $output);
-        self::assertFileDoesNotExist($marker);
-    }
-
     /** CP-132: 名前付き引数の順番によらず、`component` の引数を読む */
     public function testParametersOfANamedComponentArgument(): void
     {
-        $this->source('Foo', "<?php\nuse function Polidog\\Rosanna\\Runtime\\fc;\nreturn fc(key: 'k', component: fn (array \$p, \\ArrayObject \$r) => <a />, storageType: \\Polidog\\Rosanna\\Storage\\StorageType::Memory);\n");
+        $this->source('Foo', "<?php\nuse function Polidog\\Rosanna\\State\\fc;\nreturn fc(key: 'k', component: fn (array \$p, \\ArrayObject \$r) => <a />, storageType: \\Polidog\\Rosanna\\State\\Storage\\StorageType::Memory);\n");
 
         self::assertSame(0, $this->compile(), $this->output);
-        $manifest = require $this->cache . '/manifest.php';
+        $manifest = $this->manifest();
 
         self::assertSame([
             ['kind' => 'props', 'name' => 'p'],
@@ -285,7 +222,7 @@ final class ManifestTest extends TestCase
     /** CP-133: 名前付きでも解釈できないパラメータはエラーになる */
     public function testInvalidParameterOfANamedComponentArgument(): void
     {
-        $this->source('Foo', "<?php\nuse function Polidog\\Rosanna\\Runtime\\fc;\nreturn fc(key: 'k', component: fn (array \$p, int \$bad) => <a />);\n");
+        $this->source('Foo', "<?php\nuse function Polidog\\Rosanna\\State\\fc;\nreturn fc(key: 'k', component: fn (array \$p, int \$bad) => <a />);\n");
 
         self::assertSame(1, $this->compile());
         self::assertStringContainsString('$bad', $this->output);
@@ -294,29 +231,11 @@ final class ManifestTest extends TestCase
     /** CP-132: 位置引数のあとの名前付き引数は従来どおり最初の引数を読む */
     public function testParametersOfAPositionalComponentWithNamedOptions(): void
     {
-        $this->source('Foo', "<?php\nuse function Polidog\\Rosanna\\Runtime\\fc;\nreturn fc(fn (array \$p, \\ArrayObject \$r) => <a />, key: 'k');\n");
+        $this->source('Foo', "<?php\nuse function Polidog\\Rosanna\\State\\fc;\nreturn fc(fn (array \$p, \\ArrayObject \$r) => <a />, key: 'k');\n");
 
         self::assertSame(0, $this->compile(), $this->output);
-        $manifest = require $this->cache . '/manifest.php';
+        $manifest = $this->manifest();
 
         self::assertCount(2, $manifest['Foo']['parameters']);
-    }
-
-    /** CP-123: `--check` は古い成果物を読み込まない */
-    public function testCheckDoesNotRequireAStaleArtifact(): void
-    {
-        $source = $this->source('Foo', "<?php\n// Defer\nreturn fn () => 'x';");
-        self::assertSame(0, $this->compile());
-
-        \file_put_contents(CompileCommand::cachePathFor($this->cache, $source), "<?php\nthrow new \\Exception('must not run');\n");
-        $this->source('Foo', "<?php\n// Defer changed\nreturn fn () => 'x';");
-
-        \ob_start();
-        $code = new CompileCommand()->run(['--check'], $this->dir);
-        $output = (string) \ob_get_clean();
-
-        self::assertSame(1, $code);
-        self::assertStringContainsString('Out of date', $output);
-        self::assertStringNotContainsString('must not run', $output);
     }
 }

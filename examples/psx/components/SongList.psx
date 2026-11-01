@@ -1,0 +1,16 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Examples\Psx;
+
+// 状態のないコンポーネントは、props を受け取る関数を返すだけでよい
+return fn(array $props) => (
+    <section>
+        <h2>{$props['title']}</h2>
+        <Badge count={count($props['songs'])} />
+        <ul>
+            {array_map(fn(string $song) => <li>{$song}</li>, $props['songs'])}
+        </ul>
+    </section>
+);

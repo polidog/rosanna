@@ -6,7 +6,6 @@ namespace Polidog\Rosanna\Tests\Runtime;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Polidog\Rosanna\Psx\CompileCommand;
 use Polidog\Rosanna\Runtime\DefaultPsxArgumentResolver;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\PsxArgumentResolver;
@@ -143,27 +142,6 @@ final class PsxRendererTest extends TestCase
         self::assertSame(['from-resolver'], $psx->render('App\\C')->children);
     }
 
-    public function testRT113ResolverReachesInsideFc(): void
-    {
-        $code = <<<'PHP'
-            <?php
-            use function Polidog\Rosanna\Runtime\fc;
-            use Polidog\Rosanna\Runtime\Element;
-            return fc(static fn(array $props, string $extra) => new Element('p', [], [$props['a'], $extra]), 'k');
-            PHP;
-        $psx = $this->psxWith('App\\C', $code, [['kind' => 'props', 'name' => 'props'], ['kind' => 'service', 'name' => 'extra', 'service' => 'X']]);
-        $resolver = self::resolver(['injected']);
-        $psx->setArgumentResolver($resolver);
-
-        $wrapper = $psx->render('App\\C', ['a' => 'prop', 'key' => 'row']);
-
-        self::assertStringEndsWith('.php:4#k/row', $wrapper->props['data-rosanna'], 'the instance id is still from the component');
-        self::assertSame(['prop', 'injected'], $wrapper->children[0]->children);
-        self::assertSame('App\\C', $resolver->seen[0]);
-        self::assertSame(['a' => 'prop'], $resolver->seen[2]);
-        self::assertSame('X', $resolver->seen[1][1]['service']);
-    }
-
     public function testRT113RegisteredComponentsUseTheResolverToo(): void
     {
         $psx = new PsxRenderer(self::resolver(['z']));
@@ -197,25 +175,6 @@ final class PsxRendererTest extends TestCase
         new DefaultPsxArgumentResolver()->resolve('A', [['kind' => 'props', 'name' => 'p'], ['kind' => 'service', 'name' => 'repo', 'service' => 'R']], []);
     }
 
-    public function testRT115DeferredManifestEntriesAreReturned(): void
-    {
-        $path = $this->manifest(['App\\C' => ['file' => '/x.php', 'parameters' => []]]);
-        file_put_contents(
-            dirname($path) . '/' . PsxRenderer::DEFERRED_MANIFEST_FILENAME,
-            '<?php return ["user-header" => ["component" => "App\\\\C", "cacheControl" => "private, no-store"], "other" => ["component" => "App\\\\D", "cacheControl" => null]];',
-        );
-
-        self::assertSame([
-            'user-header' => ['component' => 'App\\C', 'cacheControl' => 'private, no-store'],
-            'other' => ['component' => 'App\\D', 'cacheControl' => null],
-        ], new PsxRenderer()->loadManifest($path));
-    }
-
-    public function testRT115NoDeferredManifestIsEmpty(): void
-    {
-        self::assertSame([], new PsxRenderer()->loadManifest($this->manifest([])));
-    }
-
     /** @return iterable<string, array{string}> */
     public static function badManifests(): iterable
     {
@@ -238,66 +197,38 @@ final class PsxRendererTest extends TestCase
         new PsxRenderer()->loadManifest($path);
     }
 
+    /** CP-136 deferred manifest を読むのは状態層で、本体は中身を見ない */
+    public function testRT115DeferredManifestIsIgnored(): void
+    {
+        $path = $this->manifest(['App\\C' => ['file' => $this->compiled('c', '<?php return static fn() => new \Polidog\Rosanna\Runtime\Element("p");'), 'parameters' => []]]);
+        file_put_contents(dirname($path) . '/' . PsxRenderer::DEFERRED_MANIFEST_FILENAME, '<?php throw new \DomainException("must not be read");');
+
+        $psx = new PsxRenderer();
+        $psx->loadManifest($path);
+
+        self::assertSame('p', $psx->render('App\\C')->type);
+    }
+
+    /** CP-144 build ID は項目として読まない */
+    public function testRT115BuildIdIsNotAnEntry(): void
+    {
+        $path = $this->manifest([PsxRenderer::BUILD_ID_KEY => 'abc']);
+
+        new PsxRenderer()->loadManifest($path);
+
+        self::assertSame('abc', PsxRenderer::readBuildId($path));
+    }
+
+    /** 古い形式の manifest */
+    public function testRT115ManifestWithoutABuildIdHasNull(): void
+    {
+        self::assertNull(PsxRenderer::readBuildId($this->manifest([])));
+    }
+
     public function testRT115MissingManifest(): void
     {
         $this->expectException(\RuntimeException::class);
         new PsxRenderer()->loadManifest($this->dir . '/none.php');
-    }
-
-    public function testRT115BadDeferredEntries(): void
-    {
-        foreach (['<?php return 1;', '<?php return ["a" => "x"];', '<?php return ["a" => ["component" => 1]];', '<?php return ["a" => ["component" => "C", "cacheControl" => 1]];'] as $code) {
-            $path = $this->manifest([]);
-            file_put_contents(dirname($path) . '/' . PsxRenderer::DEFERRED_MANIFEST_FILENAME, $code);
-            try {
-                new PsxRenderer()->loadManifest($path);
-                self::fail($code);
-            } catch (\RuntimeException) {
-                $this->addToAssertionCount(1);
-            }
-        }
-    }
-
-    public function testCP150To152ActualCompiledArtifactMapsBackToThePsxSource(): void
-    {
-        $source = $this->dir . '/src/Boom.psx';
-        mkdir(dirname($source));
-        file_put_contents($source, <<<'PSX'
-            <?php
-
-            namespace App\Psx;
-
-            use function Polidog\Rosanna\Runtime\fc;
-
-            return fc(function (array $props) {
-                throw new \DomainException('from psx');
-            });
-            PSX);
-
-        $cache = $this->dir . '/cache';
-        ob_start();
-        $exit = new CompileCommand()->run(['--cache=' . $cache, $this->dir . '/src'], $this->dir);
-        $output = (string) ob_get_clean();
-        self::assertSame(0, $exit, $output);
-
-        $psx = new PsxRenderer();
-        $psx->loadManifest($cache . '/' . PsxRenderer::MANIFEST_FILENAME);
-
-        try {
-            $psx->render('App\\Psx\\Boom');
-            self::fail();
-        } catch (\DomainException $e) {
-            $artifact = $e->getFile();
-            self::assertStringEndsNotWith('.psx', $artifact);
-            $real = (string) realpath($source);
-            self::assertSame($real, StackTraceRewriter::rewriteFile($artifact));
-            self::assertSame(8, $e->getLine(), 'CP-101: the lines match the source');
-
-            $formatted = StackTraceRewriter::formatException(new \RuntimeException('outer', previous: $e));
-            self::assertStringContainsString("DomainException: from psx at {$real}:8", $formatted);
-            self::assertStringContainsString('Caused by: DomainException', $formatted);
-            self::assertStringNotContainsString($artifact, $formatted, 'closure names carry the path too');
-        }
     }
 
     public function testCP152UnknownPathsAreLeftAlone(): void

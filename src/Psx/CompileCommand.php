@@ -23,8 +23,9 @@ final class CompileCommand
     private const int WATCH_INTERVAL_MICROSECONDS = 500_000;
 
     /**
-     * @param (\Closure(array<string, string>, string, bool): list<string>)|null $afterManifest manifest の後に動く処理。
-     *        コンポーネント (FQCN => ソースのパス)、キャッシュのディレクトリ、`--check` かどうかを受け、古い (書き換えた) パスを返す
+     * @param (\Closure(array<string, string>, string, string, bool): list<string>)|null $afterManifest manifest の後に動く処理。
+     *        コンポーネント (FQCN => ソースのパス)、キャッシュのディレクトリ、build ID、`--check` かどうかを受け、古い (書き換えた) パスを返す。
+     *        渡さなければ、残っている deferred manifest を消す (CP-136)
      */
     public function __construct(
         private readonly ?\Closure $afterManifest = null,
@@ -296,15 +297,21 @@ final class CompileCommand
         }
 
         $manifestPath = $cacheDir . \DIRECTORY_SEPARATOR . PsxRenderer::MANIFEST_FILENAME;
-        $manifestSource = $this->buildManifest($components, $compiled, $cacheDir);
+        $entries = $this->manifestEntries($components, $compiled, $cacheDir);
+        $buildId = $this->buildId($sources, $compiled, $cacheDir, $entries);
+        $manifestSource = \implode("\n", ['<?php', self::GENERATED_COMMENT, 'return [', '    ' . \var_export(PsxRenderer::BUILD_ID_KEY, true) . ' => ' . \var_export($buildId, true) . ',', ...$entries, '];']) . "\n";
         if (self::writeIfChanged($manifestPath, $manifestSource, $check)) {
             $stale[] = $manifestPath;
         }
 
-        // `--check` で古い成果物は読み込まない。その場合はすでに exit 1 が決まっている
-        if (!$staleArtifacts || !$check) {
-            $afterManifest = $this->afterManifest ?? new DeferredManifestCompiler()->compile(...);
-            $stale = [...$stale, ...$afterManifest($components, $cacheDir, $check)];
+        if ($this->afterManifest === null) {
+            $deferredPath = $cacheDir . \DIRECTORY_SEPARATOR . PsxRenderer::DEFERRED_MANIFEST_FILENAME;
+            if ($this->removeStaleDeferredManifest($deferredPath, $check)) {
+                $stale[] = $deferredPath;
+            }
+        } elseif (!$staleArtifacts || !$check) {
+            // `--check` で古い成果物は読み込まない。その場合はすでに exit 1 が決まっている
+            $stale = [...$stale, ...($this->afterManifest)($components, $cacheDir, $buildId, $check)];
         }
 
         if ($check) {
@@ -328,13 +335,15 @@ final class CompileCommand
     /**
      * @param array<string, string> $components FQCN => ソースのパス
      * @param array<string, string> $compiled ソースのパス => 成果物
+     *
+     * @return list<string> manifest の項目の行
      */
-    private function buildManifest(array $components, array $compiled, string $cacheDir): string
+    private function manifestEntries(array $components, array $compiled, string $cacheDir): array
     {
         \ksort($components, \SORT_STRING);
 
         $parameters = new ComponentParameters();
-        $lines = ['<?php', self::GENERATED_COMMENT, 'return ['];
+        $lines = [];
         foreach ($components as $fqcn => $file) {
             $artifactPath = self::cachePathFor($cacheDir, $file);
             // `--check` では成果物を書かないので、今回コンパイルしたものはメモリから読む
@@ -358,9 +367,44 @@ final class CompileCommand
             }
             $lines[] = '    ],';
         }
-        $lines[] = '];';
 
-        return \implode("\n", $lines) . "\n";
+        return $lines;
+    }
+
+    /**
+     * 成果物の内容から決まる ID。同じ入力なら同じ値になるので `writeIfChanged()` の判定を壊さない。
+     *
+     * @param array<string, string> $sources ソースのパス => ソース
+     * @param array<string, string> $compiled ソースのパス => 成果物
+     * @param list<string> $entries manifest の項目の行
+     */
+    private function buildId(array $sources, array $compiled, string $cacheDir, array $entries): string
+    {
+        $context = \hash_init('sha256');
+        \hash_update($context, \implode("\n", $entries));
+        foreach (\array_keys($sources) as $file) {
+            $artifact = $compiled[$file] ?? @\file_get_contents(self::cachePathFor($cacheDir, $file));
+            \hash_update($context, "\0" . $file . "\0" . (\is_string($artifact) ? $artifact : ''));
+        }
+
+        return \hash_final($context);
+    }
+
+    /**
+     * CP-136: closure を渡さない compile は defer を調べないので、残っている deferred manifest は古い。
+     *
+     * @return bool 消した (`--check` なら古い) かどうか
+     */
+    private function removeStaleDeferredManifest(string $path, bool $check): bool
+    {
+        if (!\file_exists($path)) {
+            return false;
+        }
+        if (!$check && !@\unlink($path)) {
+            throw new \RuntimeException("Error: failed to remove $path");
+        }
+
+        return true;
     }
 
     /**

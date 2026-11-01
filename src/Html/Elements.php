@@ -4,16 +4,11 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\Html;
 
-use Polidog\Rosanna\Component\Defer;
-use Polidog\Rosanna\Runtime\Action;
-use Polidog\Rosanna\Runtime\ComponentState;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\EventBinding;
 use Polidog\Rosanna\Runtime\EventResolver;
 use Polidog\Rosanna\Runtime\Renderable;
-use Polidog\Rosanna\Runtime\RenderContext;
 use Polidog\Rosanna\Runtime\ResolvesItself;
-use Polidog\Rosanna\Storage\StorageType;
 
 /**
  * 要素を作る API。PHP で書けない属性名はスプレッドで渡す。
@@ -21,6 +16,9 @@ use Polidog\Rosanna\Storage\StorageType;
  */
 final class H
 {
+    /** defer の名前。URL のパスの 1 段になるので URL に安全な文字だけを許す */
+    public const DEFER_NAME_PATTERN = '[A-Za-z0-9_-]+';
+
     /** @param array<mixed>|Element|Renderable|\Stringable|string|int|float|bool|null $children */
     public static function div(
         ?string $className = null,
@@ -1202,29 +1200,6 @@ final class H
     }
 
     /**
-     * fc() と違ってラッパーを出さず、保存先は Session になる (RT-6.7)。
-     *
-     * @param array<string, mixed> $props
-     * @throws \InvalidArgumentException key が string でも int でもないとき
-     */
-    public static function component(callable $component, array $props = []): Element
-    {
-        $key = $props['key'] ?? null;
-        unset($props['key']);
-        if ($key !== null && !is_string($key) && !is_int($key)) {
-            throw new \InvalidArgumentException('H::component(): the "key" prop must be a string or int, got ' . get_debug_type($key));
-        }
-
-        // 文字列や配列のまま props に置くと、手で組んだ Element と区別できず関数名を実行する形が残る (RT-6.7)
-        return new Element('__function_component__', [
-            '__component' => $component instanceof \Closure ? $component : \Closure::fromCallable($component),
-            '__props' => $props,
-            '__key' => $key === null ? null : (string) $key,
-            '__name' => getFunctionComponentName($component),
-        ]);
-    }
-
-    /**
      * defer のプレースホルダー。引数名は生成コードとの契約 (CP-62)。
      *
      * @param array<string, mixed> $params クエリにして送る。スカラーか null だけ
@@ -1238,7 +1213,9 @@ final class H
         bool $reloadable = false,
         int $localCacheTtl = 0,
     ): Element {
-        Defer::assertValidName($name);
+        if (preg_match('/^' . self::DEFER_NAME_PATTERN . '$/D', $name) !== 1) {
+            throw new \InvalidArgumentException('Deferred component name must match `' . self::DEFER_NAME_PATTERN . "`, got: '{$name}'");
+        }
 
         return new Element('__defer__', [
             '__name' => $name,
@@ -1293,9 +1270,9 @@ final class H
  */
 function createElement(string $type, array $params): Element
 {
-    // RT-1.2 これらの props は実行する関数とプレースホルダーの内容で、値から作らせない。H::component() と H::defer() が直接作る
-    if ($type === '__function_component__' || $type === '__defer__') {
-        throw new \InvalidArgumentException(sprintf('The element type %s is reserved. Use H::component() or H::defer().', $type));
+    // RT-1.2 これらの props はプレースホルダーの内容で、値から作らせない。H::defer() が直接作る
+    if ($type === '__defer__') {
+        throw new \InvalidArgumentException(sprintf('The element type %s is reserved. Use H::defer().', $type));
     }
 
     // textarea に value 属性はなく、値は中身のテキストである
@@ -1347,36 +1324,6 @@ function createElement(string $type, array $params): Element
 }
 
 /**
- * Action と Closure だけを受ける。is_callable() にすると、イベントの prop に流れた文字列が
- * 関数名として実行されるので、文字列、配列、呼び出し可能オブジェクトは実行せずに拒否する (RT-2.6)。
- *
- * @internal
- * @throws \InvalidArgumentException
- */
-function resolveEventAction(string $event, mixed $value): ?Action
-{
-    if ($value instanceof Action) {
-        return $value;
-    }
-    if (!$value instanceof \Closure) {
-        throw new \InvalidArgumentException(sprintf('%s must be an Action or a Closure; got %s', $event, get_debug_type($value)));
-    }
-
-    // クロージャはイベントのときではなく描画中に動くので、渡せるイベントの値がない
-    if (new \ReflectionFunction($value)->getNumberOfRequiredParameters() > 0) {
-        throw new \InvalidArgumentException(sprintf(
-            '%s closures take no arguments: they run during rendering to build the Action. '
-            . 'To receive what the user typed, use useFormAction().',
-            $event,
-        ));
-    }
-
-    $action = $value();
-
-    return $action instanceof Action ? $action : null;
-}
-
-/**
  * ネストした配列を文書順に平坦化し、コンポーネントを展開する (RT-2.8)。
  *
  * @param array<mixed> $children
@@ -1390,8 +1337,6 @@ function resolveRenderables(array $children): array
             foreach (resolveRenderables($child) as $nested) {
                 $resolved[] = $nested;
             }
-        } elseif ($child instanceof Element && $child->type === '__function_component__') {
-            $resolved[] = resolveFunctionComponent($child);
         } elseif ($child instanceof ResolvesItself) {
             $resolved[] = $child->resolve();
         } elseif ($child instanceof Renderable) {
@@ -1402,65 +1347,4 @@ function resolveRenderables(array $children): array
     }
 
     return $resolved;
-}
-
-/**
- * @internal
- * @throws \RuntimeException コンポーネントが Element を返さないとき
- */
-function resolveFunctionComponent(Element $element): Element
-{
-    // RT-6.7 手で組んだ Element の props から関数名を実行しない。H::component() は常に Closure を入れる
-    $component = $element->props['__component'] ?? null;
-    if (!$component instanceof \Closure) {
-        throw new \RuntimeException('__component of a function component Element must be a Closure; got ' . get_debug_type($component) . '. Use H::component().');
-    }
-    $props = $element->props['__props'] ?? [];
-    if (!is_array($props)) {
-        throw new \RuntimeException('__props of a function component Element must be an array; got ' . get_debug_type($props) . '.');
-    }
-    /** @var array<string, mixed> $props */
-    $key = $element->props['__key'] ?? null;
-    if ($key !== null && !is_string($key)) {
-        throw new \RuntimeException('__key of a function component Element must be a string or null; got ' . get_debug_type($key) . '.');
-    }
-
-    $name = $element->props['__name'] ?? null;
-    if (!is_string($name)) {
-        $name = getFunctionComponentName($component);
-    }
-    $instanceId = RenderContext::beginComponent($name, $key);
-    $parentState = ComponentState::current();
-
-    try {
-        ComponentState::getInstance($instanceId, StorageType::Session);
-        ComponentState::reset();
-        $result = $component($props);
-    } finally {
-        RenderContext::endComponent();
-        ComponentState::setCurrent($parentState);
-    }
-
-    if (!$result instanceof Element) {
-        throw new \RuntimeException(sprintf('Function component %s must return an Element; got %s.', $name, get_debug_type($result)));
-    }
-
-    return $result;
-}
-
-/** RT-8.1 */
-function getFunctionComponentName(callable $component): string
-{
-    if ($component instanceof \Closure) {
-        $reflection = new \ReflectionFunction($component);
-        $file = $reflection->getFileName();
-        $line = $reflection->getStartLine();
-
-        return 'FC@' . basename($file === false ? 'unknown' : $file) . ':' . ($line === false ? 0 : $line);
-    }
-    if (is_array($component)) {
-        return (is_object($component[0]) ? $component[0]::class : $component[0]) . '::' . $component[1];
-    }
-
-    return is_string($component) ? $component : 'AnonymousFC';
 }

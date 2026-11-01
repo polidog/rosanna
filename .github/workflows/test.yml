@@ -53,18 +53,6 @@ jobs:
       - name: PHPUnit
         run: vendor/bin/phpunit
 
-  client-script:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Node tests
-        run: node --test tests/js/*.test.mjs
-
   browser:
     runs-on: ubuntu-latest
     steps:

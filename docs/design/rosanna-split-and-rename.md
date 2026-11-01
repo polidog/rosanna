@@ -23,12 +23,12 @@ usePHP のリポジトリは改名せずに残し、`polidog/rosanna` を新し�
 
 | 項目 | 現在 | 変更後 |
 |---|---|---|
-| パッケージ | `polidog/use-php` | `polidog/rosanna` |
+| パッケージ | `polidog/use-php` | `polidog/rosanna` (描画) と `polidog/rosanna-state` (状態層)。[決定の変更 (2026-11-02)](#決定の変更-2026-11-02) |
 | コンパイラの場所 | 同居 (`src/Psx/`) | 同居 (`src/Psx/`) |
-| 名前空間 | `Polidog\UsePhp` | `Polidog\Rosanna` |
+| 名前空間 | `Polidog\UsePhp` | `Polidog\Rosanna`、状態層は `Polidog\Rosanna\State` |
 | PSX の名前空間 | `Polidog\UsePhp\Psx` | `Polidog\Rosanna\Psx` |
-| 本体クラス | `UsePHP` | `Rosanna` |
-| コマンド | `vendor/bin/usephp` | `vendor/bin/rosanna` |
+| 本体クラス | `UsePHP` | `Rosanna`、状態層の入口は `RosannaState` |
+| コマンド | `vendor/bin/usephp` | `vendor/bin/rosanna`、状態層は `vendor/bin/rosanna-state` |
 | GitHub リポジトリ | `polidog/usePHP` (残す) | `polidog/rosanna` (新規) |
 
 - パッケージ名は `polidog/rosanna` とする。利用者が最初に試す名前を入口にする。
@@ -37,8 +37,9 @@ usePHP のリポジトリは改名せずに残し、`polidog/rosanna` を新し�
 - Relayer とは統合しない。Relayer は別リポジトリのまま。
 - **コードは 0 から作り直す。** usePHP のコード、テスト、git の履歴は取り込まない。usePHP は読んで仕様を確かめる
   参考資料とし、ファイルはコピーしない。
-- hooks、`H`、`Component`、PSX の構文は usePHP と同じ使い方にする。利用者の移行を名前の置換と再コンパイルで
-  済ませるため。内部の構造は合わせない。例外はルーターに関わるもので、`useRouter` は Rosanna から外す。
+- hooks、`H`、`Component`、PSX の構文は usePHP と同じ使い方にする。関数名、引数、属性の書き方は変えない。内部の構造は合わせない。例外はルーターに関わるものと、次の 2 つである。
+  `useRouter` は Rosanna から外す。`H::component()` は `Polidog\Rosanna\State\component()` になる。
+  移行は名前の置換と再コンパイルでは済まない。状態を使うアプリは [利用者の移行手順](#利用者の移行手順-リリースノートに書く) のとおり、パッケージの追加、入口の変更、`Polidog\Rosanna\State\` への `use` の変更、`rosanna-state compile` での再コンパイル、`AssetInstaller` の名前空間の変更が要る。描画だけのアプリは `polidog/rosanna` だけで済む。
 
 ### 決定の変更 (2026-11-01)
 
@@ -52,6 +53,15 @@ usePHP のリポジトリは改名せずに残し、`polidog/rosanna` を新し�
   コンパイル済みの成果物で描画してもそれらのクラスが読み込まれないことをテストで固定する。
 - なくなるもの: `compile` の `class_exists()` の分岐と案内、分割の CI、`path` リポジトリ、`self.version`、
   `COMPOSER_ROOT_VERSION` の指定。
+
+### 決定の変更 (2026-11-02)
+
+状態層を `polidog/rosanna-state` に切り出す (polidog/rosanna#7)。Relayer を使う `polidog/web` と `ptyhard/website-2026` は `H`、`Element`、`Renderer` だけを使っており、hooks とイベントの prop は 1 件も使っていないため。
+
+- 依存の向きは `rosanna-state` から `rosanna` への一方向。`polidog/rosanna` は描画層だけで動く。
+- 状態層の初期化は `composer require polidog/rosanna-state` と `new RosannaState()` だけで、bootstrap の呼び出しはない。POST を `actions()->handle()` に渡す、リクエストの scope の中で描画する、`renderClientScript()` と `rosanna-state publish` で JS を配信する、Snapshot なら `setSnapshotSecret()` を呼ぶ、はホスト側の仕事として残る。
+- コンパイラは `polidog/rosanna` に同居したままとする (2026-11-01 の決定は変えない)。
+- 分け方と境界は Issue と [パッケージの中の境界](#パッケージの中の境界) に書く。互換レイヤーと deprecation は作らない。
 
 ### 作り直しても引き継ぐもの
 
@@ -102,27 +112,28 @@ usePHP のリポジトリは改名せずに残し、`polidog/rosanna` を新し�
 
 ## パッケージの中の境界
 
-`polidog/rosanna` の必須依存は `ext-mbstring` と `nikic/php-parser` で、どちらもコンパイラのためのものである。
+`polidog/rosanna` の必須依存は `ext-mbstring` と `nikic/php-parser` で、どちらもコンパイラのためのものである。`polidog/rosanna-state` の必須依存は `polidog/rosanna` だけである。
 
-| 場所 | 中身 | 使う依存 |
-|---|---|---|
-| `src/` (`src/Psx/` の外) | hooks、Renderer、H、Component、Storage、Snapshot、`Rosanna` | なし |
-| `src/Psx/` | Parser、Compiler、CompileCommand | `nikic/php-parser`、`ext-mbstring` |
+| パッケージ | 場所 | 中身 | 使う依存 |
+|---|---|---|---|
+| `polidog/rosanna` | `src/` (`src/Psx/` の外) | `H`、`Element`、`Renderer`、`RenderContext`、`RenderScope`、`PsxRenderer`、`RequestLifecycle`、差し替え口 (`RenderExtension`、`EventBinding`、`EventResolver`、`ResolvesItself`、`AcceptsArgumentResolver`)、`Rosanna` | なし |
+| `polidog/rosanna` | `src/Psx/` | Parser、Compiler、CompileCommand | `nikic/php-parser`、`ext-mbstring` |
+| `polidog/rosanna-state` | `src/` | hooks、`fc()`、`component()`、`Action`、`Component`、`Http`、`Protocol`、`Snapshot`、`Storage`、defer、`public/rosanna.js`、`RosannaState` | `polidog/rosanna` |
 
 `psr/http-message` には依存しない。分割設計の step 0 は `require` に加えるが、usePHP も Relayer も PSR-7 を使っておらず、
-リクエストは Rosanna 独自の値オブジェクト (usePHP の `RequestContext` に相当) で受ける。
+リクエストは `Polidog\Rosanna\State\Http\Request` (usePHP の `RequestContext` に相当) で受ける。これは状態層の値オブジェクトで、`polidog/rosanna` は HTTP を知らない。
 
-依存の向きは `src/Psx/` からランタイムへの一方向。規模の目安は usePHP のランタイム約 9,400 行、
+依存の向きは `src/Psx/` からランタイムへ、`polidog/rosanna-state` から `polidog/rosanna` への一方向。本体は状態層の名前を参照しない。規模の目安は分離の前の数で、 usePHP のランタイム約 9,400 行、
 PSX 約 2,400 行。
 
 usePHP での依存の実態は次のとおりで、Rosanna の境界もこれを前提に決める。
 
 - `nikic/php-parser` を使うのは `src/Psx/` だけ。
-- `CompileCommand` はコンパイル時に `FunctionComponent` を参照する (`src/Psx/CompileCommand.php:434`)。
+- usePHP の `CompileCommand` はコンパイル時に `FunctionComponent` を参照する (`src/Psx/CompileCommand.php:434`)。Rosanna の `CompileCommand` は参照せず、manifest の後に動く `\Closure` を受ける。`rosanna-state compile` がこれを渡して deferred manifest を書く。
 - 生成コードは `RenderContext::getApp()->renderPsxComponent(...)` と `H::defer(...)` を呼ぶ
   (`src/Psx/PsxParser.php:551`, `:577`)。Rosanna の生成コードは `getApp()` を使わない形で作る。
 
-hooks だけのパッケージは作らない。hooks は `ComponentState`、`RenderContext`、`Renderer` に相当するものに依存する。
+hooks だけのパッケージは作らない。hooks は `ComponentState`、`RenderPass` に依存し、これらは Action、署名、Storage と一緒に `polidog/rosanna-state` に置く。
 
 ランタイムとコンパイラの本当の境界は生成コードである。ランタイム側で呼び出しを変えると再コンパイルが必要になる。
 
@@ -137,7 +148,7 @@ usePHP にはランタイムから PSX への参照が残っている。Rosanna 
 
 ### コマンド
 
-`bin/rosanna` は `publish` をランタイムで処理し、`compile` で `CompileCommand` を直接呼ぶ。
+`vendor/bin/rosanna` は `compile` と `help`、`vendor/bin/rosanna-state` は `publish`、`compile`、`help` を持つ。Composer で同じ bin 名は共存できない。`bin/rosanna` は `compile` で `CompileCommand` を直接呼ぶ。
 
 ```php
 $compile = static function (array $arguments): int {
@@ -145,11 +156,13 @@ $compile = static function (array $arguments): int {
 };
 ```
 
-`src/Psx/` の外から PSX への参照はこの 1 か所だけである。
+`polidog/rosanna` の中で `src/Psx/` の外から PSX への参照はこの 1 か所だけである。`bin/rosanna-state` は `CompileCommand` に `DeferredManifestCompiler` のクロージャを渡す。
+
+`rosanna compile` は manifest を書くたびに build ID を `manifest.php` に書き、残っている deferred manifest を消す (`--check` では古いと報告する)。`rosanna-state compile` は deferred manifest を空でも必ず書き、同じ build ID を持たせる。`RosannaState::loadComponentManifest()` は deferred manifest がない、または build ID が合わないとき、`rosanna-state compile` を案内する例外にする ([03](../spec/03-compiler.md) の CP-135、CP-136、CP-144)。
 
 ## アクション
 
-Rosanna の役割は PSX と状態の管理で、利用者のコードを動かす入口は持たない。DI も、イベントのディスパッチも持たない。
+Rosanna の役割は描画と PSX、`polidog/rosanna-state` の役割は状態の管理で、どちらも利用者のコードを動かす入口は持たない。この節は `polidog/rosanna-state` の話である。DI も、イベントのディスパッチも持たない。
 Action は `setState`、`setFields`、`restore` の 3 種類で、どれも描画時に確定した値で状態を変えるか戻すだけとする。
 `setState` の値は差分で運ぶことがあるが、適用の結果は描画時に確定している ([#87 への対応](#87-への対応))。
 DI を含むアクション処理は Relayer が担う。
@@ -176,7 +189,7 @@ Relayer の `$ctx->action()` は Relayer に残す。Rosanna は JSON でない 
 ### Relayer に公開する API
 
 分割設計の「応答は Relayer が決める」を次のように改める。Relayer #116 で応答の判断を usePHP に委譲したので、
-判断は Rosanna の 1 か所に置く。
+判断は Rosanna の 1 か所に置く。action の API は `polidog/rosanna-state` のもので、`$app` は `RosannaState` である。
 
 ```php
 $response = $app->actions()->handle($request, replay: fn (bool $partial) => $this->renderPage(/* ... */));
@@ -189,9 +202,23 @@ $app->snapshotSerializer();   // ?SnapshotSerializer
 再描画の callback は Relayer が渡すので、ページに注入したサービスがそのまま使える。部分更新と defer を含む再描画で
 DI が効くことをテストで確かめる。`ActionReplayRouter` と exit handler は要らなくなる。
 
+描画だけなら `polidog/rosanna` の API で足りる。Relayer はまだ `polidog/use-php` に依存しているので、Rosanna へ移るときに状態層を任意の依存にする (`LayoutRenderer.php:11`、`AppRouter.php` の `dispatchStateAction`)。
+
+```php
+// polidog/rosanna だけで使える
+new Renderer();                                  // 引数なし
+RenderContext::run($app->scope(), $fn);          // $app は Rosanna
+$app->setArgumentResolver($resolver);            // PsxArgumentResolver
+RequestLifecycle::reset();                       // 状態層を入れても入口はこれだけ
+
+// polidog/rosanna-state を入れたときに使う
+RenderContext::run($app->scope($request), $fn);  // $app は RosannaState
+StateScope::of(RenderContext::scope())->renderers;
+```
+
 ## リポジトリ構成
 
-1 リポジトリ 1 パッケージとする。
+1 リポジトリ 1 パッケージとする。状態層は別リポジトリの `polidog/rosanna-state` である。monorepo の分割 CI、`self.version`、`path` リポジトリは持ち込まない。
 
 ```
 polidog/rosanna
@@ -216,8 +243,8 @@ polidog/rosanna
 - 開発は `main` に直接コミットして進める。作業用のブランチと PR は使わない。
 - 最初のリリースは v0.0.1。0 から作り直した新しいパッケージなので、usePHP のバージョンを引き継がない。開発中はタグを
   打たないので、main を壊しながら進めてよい。
-- Composer の `^0.0.1` は 0.0.1 だけに一致する。Relayer は `^0.0.1` で固定し、
-  Rosanna のリリースごとに Relayer の `require` も上げる。
+- Composer の `^0.0.1` は 0.0.1 だけに一致する。`polidog/rosanna-state` と Relayer は `^0.0.1` で固定し、
+  `polidog/rosanna` を先にタグ付けして、リリースごとに `require` も上げる。3 つを一緒に上げる前提で進め、負担が見えたら `~0.0.1` を検討する。
 - 改名、分割設計の最終形 (`getApp()` なし) を最初から含めて v0.0.1 として出す。利用者の移行と
   再コンパイルを 1 回で済ませるため。
 - `replace` は宣言しない。名前空間が変わるので、`polidog/use-php` の代替にならない。
@@ -353,7 +380,7 @@ O(n²) の原因は 2 つある。各ボタンの action に新しい一覧全�
 53 B である (全体は約 54 KB)。試作の差分はランダムな値 20 万件で、JSON を経由しても復元結果がすべて一致した。差分の作成に
 かかる時間は 1000 行で約 0.2 秒、2000 行で約 0.9 秒で、行数の 2 乗で増える。
 
-要件とテストは [実装仕様](../spec/02-state-and-actions.md) の 3.1、3.2 節と、[01](../spec/01-runtime.md) の RT-4.7〜RT-4.9 に書く。
+要件とテストは [`polidog/rosanna-state` の実装仕様](https://github.com/polidog/rosanna-state/blob/main/docs/spec/02-state-and-actions.md) の 3.1、3.2 節と、[01](https://github.com/polidog/rosanna-state/blob/main/docs/spec/01-runtime.md) の RT-4.7〜RT-4.9 に書く。
 
 ## 作業の順番
 
@@ -404,8 +431,8 @@ Relayer は別ブランチで追従し、Rosanna の main に対してテスト�
 
 このうち、ここで直すのは Relayer と relayer-doc だけ。
 
-- `polidog/rosanna` を `require` にする。`PsxComponentRegistrar` と `Scaffold\CompileCommand` が使う `CompileCommand` も
-  これに入っている。
+- `polidog/rosanna` を `require` にし、状態層 (`polidog/rosanna-state`) は任意の依存にする。`PsxComponentRegistrar` と `Scaffold\CompileCommand` が使う `CompileCommand` は
+  `polidog/rosanna` に入っている。
 - 分割設計の「Relayer 側の追従」を行う。ただし action まわりは「Relayer に公開する API」に従う。
 - `useRouter` を Relayer に追加し、relayer-doc の案内を Relayer の名前空間に直す。
 - HTML、JS、HTTP の識別子を新しい名前に合わせる (`AppRouter.php` の `data-usephp`、`_usephp_action`、
@@ -416,12 +443,13 @@ Relayer は別ブランチで追従し、Rosanna の main に対してテスト�
 - `vendor/bin/usephp` を案内している箇所を直す (`Scaffold.php:326`, `:928`、`AppRouter.php:1767` など)。
 - **既存プロジェクトの移行を `relayer upgrade` に入れる。** `relayer init` は利用者の `composer.json` に
   `Polidog\UsePhp\Installer\AssetInstaller::publish` を書き込んでいる (`Scaffold.php:100`)。Rosanna に移ると
-  `composer install` の post-install で失敗するので、`STRUCTURE_VERSION` を上げてこのスクリプトを書き換える。
+  `composer install` の post-install で失敗するので、`STRUCTURE_VERSION` を上げてこのスクリプトを書き換える。状態層を入れるなら `Polidog\Rosanna\State\Installer\AssetInstaller::publish` にし、入れないなら消す。
+  本体だけに移ると `AssetInstaller` と JS がなくなるので、サーバーアクションのフォームが JS に頼っていないか、そのときに確かめる (未確認)。
 - relayer-doc を更新する。
 
 ### 6. 公開 (実行前に確認する)
 
-1. v0.0.1 のタグを打ち、Packagist に `polidog/rosanna` を登録する。
+1. `polidog/rosanna` に v0.0.1 のタグを打って Packagist に登録し、`polidog/rosanna-state` の制約を `^0.0.1` にして同じようにタグを打って登録する。
 2. Relayer の追従ブランチをマージして、新しいバージョンを出す。
 3. `polidog/use-php` を Packagist で abandoned にし、移行先に `polidog/rosanna` を指定する。
 4. usePHP の未解決 Issue を `gh issue transfer` で移し、README の冒頭に移行先を書いて、usePHP をアーカイブする。
@@ -429,20 +457,45 @@ Relayer は別ブランチで追従し、Rosanna の main に対してテスト�
 
 ## 利用者の移行手順 (リリースノートに書く)
 
+移行は `new` と `use` の置換だけでは済まない。
+
+### usePHP から、状態を使うアプリ
+
+```bash
+composer remove polidog/use-php
+composer require polidog/rosanna-state
+```
+
+1. `new UsePHP()` を `new RosannaState()` にする。`setSnapshotSecret()`、`actions()`、`scope()`、`restoreSnapshots()`、`handleDeferred()`、`renderClientScript()` は `RosannaState` のものになる。
+2. `.psx` と PHP の hooks と状態層のクラスの `use` を `Polidog\Rosanna\State\` に替える (`Runtime\*` は `State\*` に平らにする。`Protocol`、`Snapshot`、`Storage`、`Component`、`Http`、`Installer` は `State\` の下で同じ名前)。`Runtime\Snapshot` は `State\Snapshot\Snapshot` になる。`H`、`Element`、`RenderContext` など描画のものは `Polidog\Rosanna\` に替える。`H::component()` の呼び出しは `State\component()` に替える。`SimpleRouter` や `useRouter` を使っていれば、host のルーターかページごとの PHP ファイルに置き換える。Relayer の利用者は `useRouter` の `use` を Relayer のものに直す。
+3. `vendor/bin/rosanna-state compile` で再コンパイルする。生成コードは `.psx` の `use` をそのまま写すので、状態付きの PSX は全部再コンパイルが要る。変わらないのは、コンパイラが生成するコンポーネント呼び出し `RenderContext::scope()->psx->render` の形だけである。`vendor/bin/usephp` を案内している箇所も直す。
+4. `composer.json` の `scripts` にある `AssetInstaller::publish` の名前空間を `Polidog\Rosanna\State\Installer\` に替える。
+5. `vendor/bin/rosanna-state publish` で `rosanna.js` を配置し、HTML の `usephp.js` の読み込みを直す。
+6. 自前の JS やテンプレートが `_usephp_*`、`data-usephp-*`、`X-UsePHP-Partial`、`window.usePHP` を参照していれば
+   新しい名前に直す。
+7. デプロイのときに CDN のキャッシュを消す。
+
+### usePHP から、描画だけのアプリ
+
 ```bash
 composer remove polidog/use-php
 composer require polidog/rosanna
 ```
 
-1. `Polidog\UsePhp` を `Polidog\Rosanna` に、`UsePHP` を `Rosanna` に置換する。`SimpleRouter` や `useRouter` を使っていれば、
-   host のルーターかページごとの PHP ファイルに置き換える。Relayer の利用者は `useRouter` の `use` を Relayer のものに直す。
-2. `composer.json` の `scripts` の `AssetInstaller` の名前空間を直す。
-3. `vendor/bin/usephp` を `vendor/bin/rosanna` に直す。
-4. PSX を再コンパイルする。
-5. `vendor/bin/rosanna publish` で `rosanna.js` を配置し、HTML の `usephp.js` の読み込みを直す。
-6. 自前の JS やテンプレートが `_usephp_*`、`data-usephp-*`、`X-UsePHP-Partial`、`window.usePHP` を参照していれば
-   新しい名前に直す。
-7. デプロイのときに CDN のキャッシュを消す。
+1. `Polidog\UsePhp` を `Polidog\Rosanna` に、`UsePHP` を `Rosanna` に置換する。
+2. `new Renderer('...')` を `new Renderer()` にする (`website-2026` の 4 か所など)。
+3. `vendor/bin/usephp` を `vendor/bin/rosanna` に直し、PSX を再コンパイルする。
+4. `AssetInstaller` と `usephp.js` を外す。サイトが JS に頼っていないことを先に確かめる。
+
+### `polidog/rosanna` の状態を使っていたアプリ
+
+polidog/rosanna#7 の「状態を使うアプリの移行」のとおり。
+
+1. `composer require polidog/rosanna-state`
+2. `new Rosanna()` を `new RosannaState()` にする。`setSnapshotSecret()`、`actions()`、`scope()`、`restoreSnapshots()`、`handleDeferred()`、`renderClientScript()` は `RosannaState` のものになる。
+3. `.psx` と PHP の `use function Polidog\Rosanna\Runtime\useState;` などを `Polidog\Rosanna\State\` に替える。`H::component()` の呼び出しは `State\component()` に替える。
+4. `vendor/bin/rosanna-state compile` で再コンパイルする。生成コードは `.psx` の `use` をそのまま写すので、状態付きの PSX は全部再コンパイルが要る。
+5. `composer.json` の `scripts` にある `AssetInstaller::publish` の名前空間を `State\Installer\` に替える。
 
 コンパイラは `polidog/rosanna` に入っているので、`--no-dev` で本番を動かす場合も、ビルド工程でも本番サーバー上でも
 コンパイルできる。コンパイル済みのファイルの描画ではコンパイラも `nikic/php-parser` も読み込まない。

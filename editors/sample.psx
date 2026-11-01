@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Components;
 
-use Polidog\Rosanna\Runtime\Action;
+use Polidog\Rosanna\State\Action;
 
-use function Polidog\Rosanna\fc;
-use function Polidog\Rosanna\useState;
+use function Polidog\Rosanna\State\fc;
+use function Polidog\Rosanna\State\useState;
 
 // エディタの構文定義の確認用。タグ、コンポーネント、属性、{} の中の PHP、Fragment、
 // style と script の中身がそれぞれ違う色になる。比較の `$a < $b` はタグにならない。

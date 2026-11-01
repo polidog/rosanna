@@ -11,12 +11,6 @@ foreach ([__DIR__ . '/../vendor/autoload.php', __DIR__ . '/../../../autoload.php
     }
 }
 
-$fail = static function (string $message): int {
-    fwrite(STDERR, "Error: {$message}\n");
-
-    return 1;
-};
-
 $help = static function (): void {
     echo <<<'HELP'
         Rosanna CLI
@@ -25,7 +19,6 @@ $help = static function (): void {
           rosanna <command>
 
         Commands:
-          publish    Copy rosanna.js to your project's public directory
           compile    Compile .psx files into the cache directory and generate the manifest
           help       Show this help message
 
@@ -42,45 +35,11 @@ $help = static function (): void {
                                 (default: ./var/cache/psx)
 
         Examples:
-          ./vendor/bin/rosanna publish
           ./vendor/bin/rosanna compile components/
           ./vendor/bin/rosanna compile --check
 
         HELP;
     echo "\n";
-};
-
-$publish = static function () use ($fail): int {
-    // RT-13.2 パッケージの 3 階層上が vendor
-    $vendorDir = dirname(__DIR__, 3);
-    if (basename($vendorDir) !== 'vendor') {
-        // RT-13.3
-        echo "Note: running from the package root. rosanna.js is already in public/\n";
-
-        return 0;
-    }
-
-    $source = dirname(__DIR__) . '/public/rosanna.js';
-    if (!is_file($source)) {
-        return $fail('rosanna.js source not found');
-    }
-
-    $targetDir = dirname($vendorDir) . '/public';
-    if (!is_dir($targetDir)) {
-        if (!@mkdir($targetDir, 0o755, true) && !is_dir($targetDir)) {
-            return $fail("could not create directory {$targetDir}");
-        }
-        echo "Created directory: {$targetDir}\n";
-    }
-
-    $target = $targetDir . '/rosanna.js';
-    if (!@copy($source, $target)) {
-        return $fail("could not copy rosanna.js to {$target}");
-    }
-
-    echo "Published rosanna.js to {$target}\n";
-
-    return 0;
 };
 
 $compile = static function (array $arguments): int {
@@ -91,9 +50,6 @@ $compile = static function (array $arguments): int {
 $command = $argv[1] ?? 'help';
 
 switch ($command) {
-    case 'publish':
-        exit($publish());
-
     case 'compile':
         exit($compile(array_slice($argv, 2)));
 

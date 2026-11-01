@@ -2,8 +2,8 @@
 
 Status: Draft (2026-11-01、usePHP v0.10.0 `e073bff` / Relayer main 9566b0c で照合)
 
-関連: [計画書](../design/rosanna-split-and-rename.md)、`01-runtime.md` (`H`、Renderer、Component、hooks、描画スコープ、本体の
-描画 API、publish)、`02-state-and-actions.md` (Storage、Snapshot、Action、署名、CSRF、defer、`rosanna.js`)
+関連: [計画書](../design/rosanna-split-and-rename.md)、[01-runtime.md](01-runtime.md) (`H`、Renderer、描画スコープ、本体の描画 API)、
+[`polidog/rosanna-state` の 01](https://github.com/polidog/rosanna-state/blob/main/docs/spec/01-runtime.md) (Component、hooks、`RosannaState`、publish)、[`polidog/rosanna-state` の 02](https://github.com/polidog/rosanna-state/blob/main/docs/spec/02-state-and-actions.md) (Storage、Snapshot、Action、署名、CSRF、defer、`rosanna.js`)。この文書で「02」は `polidog/rosanna-state` の文書を指す
 
 ## 0. この文書の読み方
 
@@ -462,12 +462,13 @@ CP-111、CP-119、CP-120、構文エラー、出力先や成果物の書き込�
 
 ### 公開 API
 
-生成物の形式がランタイムとの契約である。読み込みは `01-runtime.md` の `PsxRenderer` と `loadComponentManifest()` が行い
-(RT-11.2、RT-11.5)、defer の登録は `02-state-and-actions.md` の `registerDeferred()` が行う (DF-13)。
+生成物の形式がランタイムとの契約である。manifest の読み込みは `01-runtime.md` の `PsxRenderer` と `loadComponentManifest()` が行い
+(RT-11.2、RT-11.5)、deferred manifest の読み込み、build ID の照合、defer の登録は `polidog/rosanna-state` の `RosannaState::loadComponentManifest()` が行う ([02](https://github.com/polidog/rosanna-state/blob/main/docs/spec/02-state-and-actions.md) の DF-13)。
 
 ```php
 // <cache>/manifest.php
 return [
+    '#build-id' => '<sha256>',
     'App\\Counter' => [
         'file' => '/abs/var/cache/psx/<sha1>.php',
         'parameters' => [
@@ -479,8 +480,9 @@ return [
     ],
 ];
 
-// <cache>/deferred-manifest.php
+// <cache>/deferred-manifest.php (`rosanna-state compile` だけが書く)
 return [
+    '#build-id' => '<sha256>',
     'user-header' => ['component' => 'App\\UserHeader', 'cacheControl' => 'private, no-store'],
 ];
 ```
@@ -504,13 +506,15 @@ return [
 
 - **CP-134** コンパイラは DI を知らない。`parameters` はメタデータとして書くだけで、引数の解決はランタイムの
   `PsxArgumentResolver` に host が渡す実装が行う。Relayer はこれでコンテナからサービスを引く。
-- **CP-135** deferred manifest は、manifest に載るファイルのうち `Defer` の文字列を含むものだけを `require` し、返り値が
-  `FunctionComponent` で `defer` を持つものを集める (`CompileCommand.php:399`)。コンパイル時にそのファイルの
-  トップレベルのコードが実行されることを、仕様書に明記する。
-- **CP-136** deferred manifest の項目が空なら、ファイルを作らず、既存のものは消す。前回の登録が残らないようにする
-  (`CompileCommand.php:739`)。
+- **CP-135** deferred manifest を書くのは `vendor/bin/rosanna-state compile` だけで、`polidog/rosanna-state` の `DeferredManifestCompiler` が行う。本体の `CompileCommand` は `FunctionComponent` を知らず、manifest の後に動く `\Closure` を受けるだけである (`new CompileCommand($afterManifest)`。インターフェースは作らない。`--check` と `--watch` も同じ経路を通る)。
+  クロージャは manifest に載るファイルのうち成果物に `Defer` の文字列を含むものだけを `require` し、返り値が `FunctionComponent` で `defer` を持つものを集める (`CompileCommand.php:399`)。コンパイル時にそのファイルの
+  トップレベルのコードが実行されることを、仕様書に明記する。本体の `rosanna compile` は何も `require` しない。`--check` で成果物が古ければ、クロージャを呼ばず読み込まない。
+- **CP-136** `rosanna-state compile` は、項目が空でも deferred manifest を必ず書き、manifest と同じ build ID を持たせる (CP-144)。クロージャを渡さない `rosanna compile` は defer を調べないので、残っている deferred manifest は古い。消す (`--check` では消さずに古いと報告して exit 1)。
+  `RosannaState::loadComponentManifest()` は、deferred manifest がない、または build ID が `manifest.php` と合わないとき、`rosanna-state compile` を案内する `RuntimeException` にする。ファイルの有無だけを見ると、`rosanna-state compile` の後に `rosanna compile` を実行したときに、新しい manifest と古い deferred manifest の組み合わせを受け入れてしまう (`polidog/rosanna-state` の DF-13)。
 - **CP-137** ファイル名の定数 `MANIFEST_FILENAME` (`manifest.php`) と `DEFERRED_MANIFEST_FILENAME` (`deferred-manifest.php`) は
   ランタイム側の `Polidog\Rosanna\Runtime\PsxRenderer` に置き、`CompileCommand` はそれを参照する。
+- **CP-144** `compile` は manifest を書くたびに、build ID を `manifest.php` のキー `#build-id` (`PsxRenderer::BUILD_ID_KEY`) に書く。値は manifest の項目と、ソースのパスと成果物の組の SHA-256 で、成果物のハッシュから決まる。同じ入力なら同じ値になり、`writeIfChanged` の判定を壊さない。時刻や乱数を入れない。
+  `PsxRenderer::loadManifest()` はこのキーを項目として読まない。`PsxRenderer::readBuildId()` が読む。`#` で始まるので FQCN と衝突しない。
 
 usePHP との差分:
 
@@ -528,7 +532,9 @@ usePHP との差分:
 ### テストすべき項目
 
 - `parameters` の 4 種類と `Foo|null`、`fc()` で包んだ場合、包まない場合。CP-133 の 5 のエラー。
-- deferred manifest の生成、項目がなくなったときの削除、名前の重複。
+- `#build-id` が同じ入力で同じ値になり、ソースが変わると変わること。`loadManifest()` が項目として読まないこと。
+- `rosanna compile` が残っている deferred manifest を消し、`--check` が古いと報告すること。`rosanna-state compile` 側の項目が空でも書くこと、名前の重複は [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state/blob/main/docs/spec/README.md) のテストで固定する。
+- 同じキャッシュディレクトリで 2 つのコマンドを交互に実行する場合を、通常実行、`--check`、`--watch` で確かめる (`polidog/rosanna-state` のテスト)。
 - `Defer` の文字列を含まないファイルが `require` されない (トップレベルで例外を投げるファイルで確かめる)。
 - ランタイムの読み込みとの結合テスト: コンパイルから描画まで。`PsxArgumentResolver` の実装を渡して `service` の
   引数が解決され、`fc()` の内側にも効く。
@@ -537,7 +543,7 @@ usePHP との差分:
 
 ### 目的
 
-1 つのコマンドからコンパイラを呼ぶ。`bin/rosanna` 本体は `01-runtime.md` の範囲である。
+1 つのコマンドからコンパイラを呼ぶ。`bin/rosanna` 本体は `01-runtime.md` の範囲である。`bin/rosanna-state` の `compile` も同じ `CompileCommand` を、CP-135 のクロージャを渡して呼ぶ ([`polidog/rosanna-state` の 01](https://github.com/polidog/rosanna-state/blob/main/docs/spec/01-runtime.md) の RT-13.7)。
 
 ### 公開 API
 
@@ -614,31 +620,32 @@ usePHP の `StackTraceRewriter` は `.psx.php` で終わるパスだけを書き
 | `Polidog\Rosanna\Html\createElement(string $type, array $params): Element` | 組み込みタグと Fragment | `src/Html/Elements.php:1393` |
 | `Polidog\Rosanna\Html\H::defer(...)` | `<defer>`。引数名は CP-62 の 6 つ | `src/Html/Elements.php:1326` |
 | `Polidog\Rosanna\Runtime\RenderContext::scope()->psx->render(string $fqcn, array $props)` | コンポーネントタグ | `src/Psx/PsxParser.php:577` |
-| `Polidog\Rosanna\Runtime\FunctionComponent` の `defer`、`inner` | deferred manifest の収集 | `src/Psx/CompileCommand.php:434` |
-| `Defer` の `name`、`cacheControl` | deferred manifest の収集 | `src/Psx/CompileCommand.php:437` |
-| `fc` の関数名 | `parameters` の収集 (CP-132) | `src/Psx/CompileCommand.php:238` |
+| `Polidog\Rosanna\State\FunctionComponent` の `defer` | deferred manifest の収集。`polidog/rosanna-state` の `DeferredManifestCompiler` が見る。コンパイラは参照しない | `src/Psx/CompileCommand.php:434` |
+| `Polidog\Rosanna\State\Component\Defer` の `name`、`cacheControl` | 同上 | `src/Psx/CompileCommand.php:437` |
+| `fc` の関数名 | `parameters` の収集 (CP-132)。名前空間によらず関数名で判定するので、`State\fc` のままで変更がない | `src/Psx/CompileCommand.php:238` |
 | `MANIFEST_FILENAME`、`DEFERRED_MANIFEST_FILENAME` | CP-137 | `src/Psx/CompileCommand.php:38` |
+| `BUILD_ID_KEY` | CP-144 | なし |
 
 ### 11.2 ランタイムに任せるもの
 
 - `Fragment` の展開、`children` の平坦化、描画できない子の拒否。
-- `createElement()` のイベント props の変換と、`onFocus` などの拒否。
+- `createElement()` のイベント props の変換 (状態層なしでは拒否。01 の RT-2.6) と、`onFocus` などの拒否。
 - `className`、`htmlFor` の属性名の変換、属性名とタグ名の検証、エスケープ。
-- `.psx` のファイルが返す callable の遅延読み込みと呼び出し、`fc()` の hook のライフサイクル。コンパイラは `return` の
+- `.psx` のファイルが返す callable の遅延読み込みと呼び出し、`fc()` の hook のライフサイクル (状態層)。コンパイラは `return` の
   右辺を解釈しない。
 
-### 11.3 `01-runtime.md`、`02-state-and-actions.md` と合わせる名前
+### 11.3 `01-runtime.md`、`polidog/rosanna-state` の文書と合わせる名前
 
 | 名前 | この文書での前提 | 相手 |
 |---|---|---|
 | `RenderContext::scope()->psx->render()` | 分割設計の形。`PsxRenderer` | 01 |
 | `PsxRenderer`、`loadComponentManifest()`、manifest の読み込み | §8 の形式を読む | 01 |
 | `PsxArgumentResolver` | `src/Psx/` の外に置く | 01 |
-| `FunctionComponent`、`fc` | `defer`、`inner` を持つ | 01 |
+| `FunctionComponent`、`fc` | `Polidog\Rosanna\State\`。`.psx` の `use` をそのまま写すので、状態付きの `.psx` は再コンパイルが要る | `polidog/rosanna-state` の 01 |
 | `H::defer()`、`createElement()` | `Polidog\Rosanna\Html` | 01 |
 | `PsxRenderer::MANIFEST_FILENAME`、`DEFERRED_MANIFEST_FILENAME` | ランタイム側 | 01 |
 | `StackTraceRewriter` | ランタイム側。§10 | 01 |
-| `Defer` (`name`、`cacheControl`)、`registerDeferred()` | deferred manifest を読む | 01、02 |
+| `Defer` (`name`、`cacheControl`)、`registerDeferred()` | deferred manifest を読む | `polidog/rosanna-state` の 01、02 |
 | `bin/rosanna` | `compile` で `CompileCommand` を呼ぶ | 01 |
 
 `PsxArgumentResolver` は分割設計では `Polidog\UsePhp\Psx` にあるが (`usephp-decomposition.md:125`)、コンパイラを読み込まずに描画

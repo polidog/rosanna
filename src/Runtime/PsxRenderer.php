@@ -13,6 +13,9 @@ final class PsxRenderer
     public const MANIFEST_FILENAME = 'manifest.php';
     public const DEFERRED_MANIFEST_FILENAME = 'deferred-manifest.php';
 
+    /** manifest の成果物を表す ID の項目。`#` で始まる名前のクラスはないので FQCN と重ならない */
+    public const BUILD_ID_KEY = '#build-id';
+
     private PsxArgumentResolver $argumentResolver;
 
     /** @var array<string, array<string, mixed>> */
@@ -42,14 +45,14 @@ final class PsxRenderer
     }
 
     /**
-     * manifest を読み、同じディレクトリの deferred manifest の項目を返す。呼び出し側が registerDeferred() に渡す (RT-11.5)。
-     *
-     * @return array<array-key, array{component: string, cacheControl: ?string}> 名前 => 登録の内容
      * @throws \RuntimeException ファイルがない、配列を返さない、項目の形が違うとき
      */
-    public function loadManifest(string $path): array
+    public function loadManifest(string $path): void
     {
         foreach (self::readArrayFile($path) as $fqcn => $entry) {
+            if ($fqcn === self::BUILD_ID_KEY) {
+                continue;
+            }
             if (!is_string($fqcn) || !is_array($entry) || !is_string($entry['file'] ?? null) || !is_array($entry['parameters'] ?? [])) {
                 throw new \RuntimeException("Invalid PSX manifest entry in {$path}. Run `vendor/bin/rosanna compile` to regenerate.");
             }
@@ -57,23 +60,18 @@ final class PsxRenderer
             $this->manifest[$fqcn] = $entry;
             unset($this->loaded[$fqcn]);
         }
+    }
 
-        $deferredPath = dirname($path) . DIRECTORY_SEPARATOR . self::DEFERRED_MANIFEST_FILENAME;
-        if (!file_exists($deferredPath)) {
-            return [];
-        }
+    /**
+     * manifest の build ID。古い形式なら null。
+     *
+     * @throws \RuntimeException ファイルがない、配列を返さないとき
+     */
+    public static function readBuildId(string $path): ?string
+    {
+        $buildId = self::readArrayFile($path)[self::BUILD_ID_KEY] ?? null;
 
-        $deferred = [];
-        foreach (self::readArrayFile($deferredPath) as $name => $entry) {
-            $cacheControl = is_array($entry) ? ($entry['cacheControl'] ?? null) : null;
-            // `404` のような数字だけの名前は PHP の配列のキーで整数になる
-            if (!is_array($entry) || !is_string($entry['component'] ?? null) || (!is_string($cacheControl) && $cacheControl !== null)) {
-                throw new \RuntimeException("Invalid deferred manifest entry in {$deferredPath}. Run `vendor/bin/rosanna compile` to regenerate.");
-            }
-            $deferred[(string) $name] = ['component' => $entry['component'], 'cacheControl' => $cacheControl];
-        }
-
-        return $deferred;
+        return is_string($buildId) ? $buildId : null;
     }
 
     /**
@@ -92,9 +90,9 @@ final class PsxRenderer
     }
 
     /**
-     * 読み込み済みの callable。defer エンドポイントの対象の判定に使う (RT-9.4)。
+     * 読み込み済みの callable。
      *
-     * @internal
+     * @internal 状態層のため
      */
     public function loaded(string $fqcn): ?callable
     {
@@ -146,10 +144,11 @@ final class PsxRenderer
     }
 
     /**
+     * @internal 状態層のため
      * @return array<mixed>
      * @throws \RuntimeException
      */
-    private static function readArrayFile(string $path): array
+    public static function readArrayFile(string $path): array
     {
         if (!is_file($path) || !is_readable($path)) {
             throw new \RuntimeException("PSX manifest not found: {$path}. Run `vendor/bin/rosanna compile` to generate it.");
