@@ -92,6 +92,8 @@ Each press sends a POST that `handle()` turns into a state update.
 
 `$setCount($count + 1)` does not mean "add". It is an action meaning "set it to this value", fixed at render time. The closure runs while rendering, not on click.
 
+Runnable samples are in [examples/](examples/README.md).
+
 ### Instance keys
 
 State belongs to an instance ID. The ID looks like `FC@<file name>:<start line>#<key>` and does not include the URL.
