@@ -281,6 +281,8 @@ function deferApp(Request $request): Rosanna
         }
     }
 
+    $components['same-outer'] = fc(static fn(): Element => H::div(id: 'same-outer', children: [sameIdCounter('a', StorageType::Session)()]), key: 'same-outer');
+
     foreach ($components as $name => $component) {
         $app->registerComponent('Fixture\\' . $name, $component);
         $app->registerDeferred($name, 'Fixture\\' . $name);
@@ -534,6 +536,24 @@ switch ($scene) {
         ]), tail: '<div id="cross" data-rosanna-defer-url="http://localhost:' . $_SERVER['SERVER_PORT'] . '/_defer/plain"><i>fallback</i></div>'
             . '<div id="outside" data-rosanna-defer-url="/other"><i>fallback</i></div>'
             . '<div id="json" data-rosanna-defer-url="/_defer/json"><i>fallback</i></div>');
+
+        return;
+
+    case 'defer-same-start':
+        $starter = tiny('starter');
+        serve(deferApp($request), $request, static fn(): Element => H::main(children: [
+            H::defer("same-{$arg}-a"),
+            H::defer("same-{$arg}-b"),
+            $starter(),
+        ]));
+
+        return;
+
+    case 'defer-same-nested':
+        serve(deferApp($request), $request, static fn(): Element => H::main(children: [
+            H::defer('same-outer'),
+            H::defer('same-session-b'),
+        ]));
 
         return;
 
