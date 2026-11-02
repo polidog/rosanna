@@ -44,6 +44,24 @@ function svgCases(): array
     ];
 }
 
+/** @return array<string, Element> RT-3.17 */
+function selectCases(): array
+{
+    $options = [H::option(value: 'a', children: 'A'), H::option(value: 'b', children: 'B'), H::option(value: 'c', children: 'C')];
+
+    return [
+        'value' => H::select(id: 'pick', value: 'b', children: $options),
+        'optgroup' => H::select(id: 'pick', value: 'c', children: [H::optgroup(label: 'x', children: $options)]),
+        'text' => H::select(id: 'pick', value: 'Plan B', children: [H::option(children: 'Plan A'), H::option(children: " Plan \n B ")]),
+        'number' => H::select(id: 'pick', value: 2, children: [H::option(value: '1'), H::option(value: '2')]),
+        'multiple' => H::select(id: 'pick', multiple: true, value: ['a', 'c'], children: $options),
+        'no-match' => H::select(id: 'pick', value: 'z', children: $options),
+        'placeholder-kept' => H::select(id: 'pick', value: 'z', children: [H::option(value: '', selected: true, disabled: true, children: 'choose'), ...$options]),
+        'placeholder-overridden' => H::select(id: 'pick', value: 'b', children: [H::option(value: '', selected: true, disabled: true, children: 'choose'), ...$options]),
+        'explicit-false' => H::select(id: 'pick', value: 'b', children: [H::option(value: 'a'), H::option(value: 'b', selected: false)]),
+    ];
+}
+
 $path = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
 $segments = explode('/', ltrim($path, '/'));
 $scene = $segments[0];
@@ -66,6 +84,15 @@ if ($scene === 'svg') {
         return;
     }
     $cases = svgCases();
+    if (isset($cases[$arg])) {
+        echo '<!doctype html><html><body>', new Rosanna()->renderElement($cases[$arg]), '</body></html>';
+
+        return;
+    }
+}
+
+if ($scene === 'select') {
+    $cases = selectCases();
     if (isset($cases[$arg])) {
         echo '<!doctype html><html><body>', new Rosanna()->renderElement($cases[$arg]), '</body></html>';
 

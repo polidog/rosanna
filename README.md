@@ -74,6 +74,8 @@ echo new Rosanna()->renderElement(H::div(className: 'card', children: [
 
 - `children` takes `Element`, strings, numbers, `Stringable`, `Renderable`, `null`, bool and arrays of those. `null` and bool output nothing. Anything else throws.
 - Text and attribute values are escaped. Pass attribute names PHP cannot write with a spread.
+- `textarea` and `select` take a `value`. `H::select(name: 'plan', value: 'b', children: [...])` outputs no `value` attribute and marks the matching `option` `selected`, including inside `optgroup`. Values are compared as strings, and an `option` without a `value` is matched by its text, as in HTML. With `multiple`, pass an array. If nothing matches, nothing is marked.
+- An `option`'s own `selected` prop decides for that option, whatever the `select`'s `value` is. If several options in a single select end up `selected`, the browser picks the last one.
 - `new Renderer()` takes no arguments, if you want to render an `Element` without `Rosanna`.
 
 ## Components without state

@@ -41,6 +41,9 @@ final class Renderer
 
     private int $renderDepth = 0;
 
+    /** @var array<array-key, true> いま開いている select の value。キーは文字列にした値 (RT-3.17) */
+    private array $selectValues = [];
+
     public function __construct(
         private readonly ?RenderExtension $extension = null,
         private readonly ?DeferredRenderer $deferred = null,
@@ -99,6 +102,25 @@ final class Renderer
 
         $lowerTag = strtolower($tag);
         $isVoid = isset(self::VOID_TAGS[$lowerTag]);
+
+        // RT-3.17 差し替え口にも解決した props を渡す。子はこの呼び出しの中で描画されるので、終わったら戻す
+        $outerSelectValues = $this->selectValues;
+        if ($lowerTag === 'select') {
+            $this->selectValues = self::selectValues(self::firstProp($element->props, 'value'));
+            $element = $element->withProps(array_filter($element->props, static fn(int|string $name): bool => strcasecmp((string) $name, 'value') !== 0, ARRAY_FILTER_USE_KEY));
+        } elseif ($lowerTag === 'option' && $this->selectValues !== [] && self::firstProp($element->props, 'selected') === null) {
+            $element = $this->markIfSelected($element);
+        }
+
+        try {
+            return $this->renderCheckedTag($element, $tag, $lowerTag, $isVoid);
+        } finally {
+            $this->selectValues = $outerSelectValues;
+        }
+    }
+
+    private function renderCheckedTag(Element $element, string $tag, string $lowerTag, bool $isVoid): string
+    {
         if ($this->extension !== null) {
             return $this->extension->renderTag($element, $lowerTag, $isVoid, $this->renderAttributes(...), $this->renderContent(...));
         }
@@ -114,6 +136,92 @@ final class Renderer
         return $isVoid
             ? "<{$tag}{$attributes} />"
             : "<{$tag}{$attributes}>{$this->renderContent($lowerTag, $element->children)}</{$tag}>";
+    }
+
+    /**
+     * select の value を、比べる文字列の集合にする。文字列にするのは属性の出力と同じ。bool は option の値にならないので何も選ばない。
+     *
+     * @return array<array-key, true>
+     */
+    private static function selectValues(mixed $value): array
+    {
+        $values = [];
+        foreach (is_array($value) ? $value : [$value] as $item) {
+            if ($item === null || is_bool($item)) {
+                continue;
+            }
+            if (!is_scalar($item)) {
+                trigger_error(sprintf('Non-scalar value for attribute "value" (%s) was dropped.', get_debug_type($item)), E_USER_NOTICE);
+                continue;
+            }
+            $values[(string) $item] = true;
+        }
+
+        return $values;
+    }
+
+    private function markIfSelected(Element $option): Element
+    {
+        $value = self::firstProp($option->props, 'value');
+        if (!is_scalar($value) || $value === false) {
+            // value 属性が出ない option の値はテキスト。調べるときに解決した子を描画にも使い、2 回解決しない
+            $option = $option->withChildren(self::resolveDeep($option->children));
+            $value = self::collapseWhitespace(self::textOf($option->children));
+        }
+
+        // 値なしの属性 (true) の値は空文字列である
+        $key = $value === true ? '' : (string) $value;
+
+        return isset($this->selectValues[$key]) ? $option->withProps([...$option->props, 'selected' => true]) : $option;
+    }
+
+    /**
+     * @param array<mixed> $children
+     * @return list<mixed>
+     */
+    private static function resolveDeep(array $children): array
+    {
+        return array_map(
+            static fn(mixed $child): mixed => $child instanceof Element ? $child->withChildren(self::resolveDeep($child->children)) : $child,
+            resolveRenderables($children),
+        );
+    }
+
+    /** @param array<mixed> $children resolveDeep() を通した子 */
+    private static function textOf(array $children): string
+    {
+        $text = '';
+        foreach ($children as $child) {
+            if ($child instanceof Element) {
+                $text .= self::textOf($child->children);
+            } elseif (is_string($child) || is_int($child) || is_float($child) || $child instanceof \Stringable) {
+                $text .= (string) $child;
+            }
+        }
+
+        return $text;
+    }
+
+    /** HTML の option の value と同じく、ASCII の空白を詰めて前後を除く */
+    private static function collapseWhitespace(string $text): string
+    {
+        return trim((string) preg_replace('/[\t\n\f\r ]+/', ' ', $text), ' ');
+    }
+
+    /**
+     * 大文字小文字を区別しない属性名で、パーサーと同じく最初の値を取る。null は属性にならないので飛ばす。
+     *
+     * @param array<string, mixed> $props
+     */
+    private static function firstProp(array $props, string $name): mixed
+    {
+        foreach ($props as $key => $value) {
+            if ($value !== null && strcasecmp((string) $key, $name) === 0) {
+                return $value;
+            }
+        }
+
+        return null;
     }
 
     /** @param array<string, mixed> $props */
