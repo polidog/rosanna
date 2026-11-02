@@ -492,8 +492,9 @@ return [
 - **CP-130** どちらも FQCN または名前でソートし、1 行目の次に自動生成であることを示すコメントを書く
   (`usePHP/src/Psx/CompileCommand.php:202`, `:374`)。
 - **CP-131** `file` は絶対パスとする。実行時とビルド時で配置が同じことを前提にする。この制約を PSX の仕様書に書く。
-- **CP-132** `parameters` は、コンパイル済みのファイルのトップレベルの `return` から求める。`fc()` で包まれていれば
-  `component` という名前の引数か、なければ位置の第 1 引数のクロージャを見る。クロージャでもアロー関数でもなければ空にする (`CompileCommand.php:219`)。
+- **CP-132** `parameters` は、コンパイル済みのファイルのトップレベルの `return` から求める。`fc()` か `deferred()` で包まれていれば
+  `component` という名前の引数か、なければ位置の第 1 引数のクロージャを見る。関数名は `use function` の別名を解決し、最後の部分を大文字小文字を区別せずに比べる。
+  包まれた引数がクロージャでもアロー関数でもなければエラーにする。包まれていない `return` がクロージャでもアロー関数でもなければ空にする (`CompileCommand.php:219`)。
 - **CP-133** 各パラメータは次の順に判定する (`CompileCommand.php:252`)。
 
   | 順 | 条件 | `kind` |
@@ -526,12 +527,14 @@ usePHP との差分:
 
 - CP-133 の 5: exit 1。メッセージは FQCN、パラメータ名、使える形を示す (`CompileCommand.php:290`)。型のない
   `fn($props)` は usePHP ではここに入るが (実測、`CompileCommandTest.php:446`)、Rosanna では `props` とする。Relayer のリフレクションの解釈と揃えるため。
+- CP-132 の読めない引数: exit 1。メッセージは FQCN、書かれた関数名、使える形を示す。
 - 成果物の `require` が例外を投げたら exit 1 にし、ファイルと内容を表示する。
 - `defer` の名前の重複は exit 1 にし、両方の FQCN を表示する。
 
 ### テストすべき項目
 
 - `parameters` の 4 種類と `Foo|null`、`fc()` で包んだ場合、包まない場合。CP-133 の 5 のエラー。
+- `fc()` と `deferred()` の別名 (グループの `use` と大文字小文字を含む)。変数などの読めない引数のエラー。
 - `#build-id` が同じ入力で同じ値になり、ソースが変わると変わること。`loadManifest()` が項目として読まないこと。
 - `rosanna compile` が残っている deferred manifest を消し、`--check` が古いと報告すること。`rosanna-state compile` 側の項目が空でも書くこと、名前の重複は [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state/blob/main/docs/spec/README.md) のテストで固定する。
 - 同じキャッシュディレクトリで 2 つのコマンドを交互に実行する場合を、通常実行、`--check`、`--watch` で確かめる (`polidog/rosanna-state` のテスト)。

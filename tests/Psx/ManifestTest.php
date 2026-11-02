@@ -94,7 +94,6 @@ final class ManifestTest extends TestCase
         yield 'fc' => ['fc(fn (array $props, Repo $repo) => <a />)', [$props, $repo]];
         yield 'fc fully qualified' => ['\\Polidog\\Rosanna\\State\\fc(fn (array $props) => <a />)', [$props]];
         yield 'fc with a closure' => ['fc(function (array $props, Repo $repo) { return <a />; })', [$props, $repo]];
-        yield 'fc with a variable' => ['fc($callable)', []];
         yield 'deferred' => ['deferred(fn (array $props, Repo $repo) => <a />, new Defer(\'a\'))', [$props, $repo]];
         yield 'not a closure' => ['"strlen"', []];
         yield 'not fc' => ['wrap(fn (array $props) => <a />)', []];
@@ -238,5 +237,72 @@ final class ManifestTest extends TestCase
         $manifest = $this->manifest();
 
         self::assertCount(2, $manifest['Foo']['parameters']);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function wrapperCalls(): iterable
+    {
+        $component = 'fn (array $props, \\ArrayObject $repo) => <a />';
+
+        yield 'function alias' => ['use function Polidog\\Rosanna\\Defer\\deferred as lazy;', "lazy($component, new Defer('a'))"];
+        yield 'function alias in another case' => ['use function Polidog\\Rosanna\\Defer\\deferred as Lazy;', "LAZY($component, new Defer('a'))"];
+        yield 'fc alias' => ['use function Polidog\\Rosanna\\State\\fc as component;', "component($component)"];
+        yield 'group function use' => ['use function Polidog\\Rosanna\\Defer\\{deferred as lazy};', "lazy($component, new Defer('a'))"];
+        yield 'mixed group use' => ['use Polidog\\Rosanna\\{function Defer\\deferred as lazy};', "lazy($component, new Defer('a'))"];
+        yield 'namespace alias' => ['use Polidog\\Rosanna\\Defer as D;', "D\\deferred($component, new Defer('a'))"];
+        yield 'relative name' => ['', "namespace\\fc($component)"];
+        yield 'name in another case' => ['', "FC($component)"];
+        yield 'a class alias does not rename a function' => ['use Lib\\Other as fc;', "fc($component)"];
+    }
+
+    /** CP-132: 別名は元の関数名で判定する */
+    #[DataProvider('wrapperCalls')]
+    public function testParametersThroughAWrapperName(string $imports, string $call): void
+    {
+        $this->source('Foo', "<?php\nnamespace App;\n$imports\nreturn $call;\n");
+
+        self::assertSame(0, $this->compile(), $this->output);
+        self::assertSame([
+            ['kind' => 'props', 'name' => 'props'],
+            ['kind' => 'service', 'name' => 'repo', 'service' => 'ArrayObject'],
+        ], $this->manifest()['App\\Foo']['parameters']);
+    }
+
+    /** CP-132: `fc` という別名でも、元の関数が違えば包みとして読まない */
+    public function testAnAliasNamedLikeAWrapperIsNotAWrapper(): void
+    {
+        $this->source('Foo', "<?php\nuse function Lib\\wrap as fc;\nreturn fc(\$callable);\n");
+
+        self::assertSame(0, $this->compile(), $this->output);
+        self::assertSame([], $this->manifest()['Foo']['parameters']);
+    }
+
+    /**
+     * @return iterable<string, array{string, string, string}>
+     */
+    public static function unreadableComponents(): iterable
+    {
+        yield 'variable in deferred' => ['', '$fn = fn (array $props, Repo $r) => <a />; return deferred($fn, new Defer(\'b\'))', 'deferred()'];
+        yield 'variable in fc' => ['', 'return fc($callable)', 'fc()'];
+        yield 'variable through an alias' => ['use function Polidog\\Rosanna\\Defer\\deferred as lazy;', 'return lazy($fn, new Defer(\'a\'))', 'lazy()'];
+        yield 'named variable' => ['', 'return fc(key: \'k\', component: $callable)', 'fc()'];
+        yield 'string callable' => ['', 'return fc(\'strlen\')', 'fc()'];
+        yield 'first class callable' => ['', 'return fc(strlen(...))', 'fc()'];
+        yield 'spread' => ['', 'return deferred(...$arguments)', 'deferred()'];
+        yield 'no component' => ['', 'return fc(key: \'k\')', 'fc()'];
+    }
+
+    /** CP-132: 読めない引数は描画まで持ち越さず、コンパイルエラーにする */
+    #[DataProvider('unreadableComponents')]
+    public function testUnreadableComponentIsACompileError(string $imports, string $statements, string $call): void
+    {
+        $this->source('Foo', "<?php\nnamespace App;\n$imports\n$statements;\n");
+
+        self::assertSame(1, $this->compile(), $this->output);
+        self::assertStringContainsString('App\\Foo', $this->output);
+        self::assertStringContainsString($call, $this->output);
+        self::assertStringContainsString('closure or arrow function', $this->output);
     }
 }
