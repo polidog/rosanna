@@ -29,12 +29,12 @@ final class ComponentParameters
             return [];
         }
 
-        $component = $this->returnedComponent($statements ?? []);
+        $context = NamespaceContext::fromSource($compiled);
+        $component = $this->returnedComponent($statements ?? [], $context, $fqcn);
         if ($component === null) {
             return [];
         }
 
-        $context = NamespaceContext::fromSource($compiled);
         $printer = new Standard();
         $parameters = [];
 
@@ -67,18 +67,43 @@ final class ComponentParameters
 
     /**
      * @param array<Node\Stmt> $statements
+     *
+     * @throws \RuntimeException `fc()` や `deferred()` の引数を静的に読めないとき
      */
-    private function returnedComponent(array $statements): Node\Expr\Closure|Node\Expr\ArrowFunction|null
+    private function returnedComponent(array $statements, NamespaceContext $context, string $fqcn): Node\Expr\Closure|Node\Expr\ArrowFunction|null
     {
         $expr = $this->topLevelReturn($statements)?->expr;
 
-        if ($expr instanceof Node\Expr\FuncCall
-            && $expr->name instanceof Node\Name
-            && \in_array($expr->name->getLast(), ['fc', 'deferred'], true)) {
-            $expr = $this->componentArgument($expr);
+        if ($expr instanceof Node\Expr\FuncCall && $expr->name instanceof Node\Name && $this->wrapsComponent($expr->name, $context)) {
+            $component = $this->componentArgument($expr);
+            if (!$this->isClosure($component)) {
+                throw new \RuntimeException(\sprintf(
+                    '%s: the component passed to %s() must be a closure or arrow function written directly in the call, '
+                    . 'so that its parameters can be recorded in the manifest. A variable or other expression cannot be read at compile time.',
+                    $fqcn,
+                    $expr->name->toString(),
+                ));
+            }
+            $expr = $component;
         }
 
-        return $expr instanceof Node\Expr\Closure || $expr instanceof Node\Expr\ArrowFunction ? $expr : null;
+        return $this->isClosure($expr) ? $expr : null;
+    }
+
+    private function wrapsComponent(Node\Name $name, NamespaceContext $context): bool
+    {
+        $function = new Node\Name($context->resolveFunctionName($name));
+
+        return \in_array(\strtolower($function->getLast()), ['fc', 'deferred'], true);
+    }
+
+    /**
+     * @psalm-assert-if-true Node\Expr\Closure|Node\Expr\ArrowFunction $expr
+     * @phpstan-assert-if-true Node\Expr\Closure|Node\Expr\ArrowFunction $expr
+     */
+    private function isClosure(?Node\Expr $expr): bool
+    {
+        return $expr instanceof Node\Expr\Closure || $expr instanceof Node\Expr\ArrowFunction;
     }
 
     /**

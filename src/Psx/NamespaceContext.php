@@ -21,6 +21,9 @@ final class NamespaceContext
     /** @var array<string, string> エイリアス => FQCN */
     private array $uses = [];
 
+    /** @var array<string, string> 小文字のエイリアス => 関数の完全な名前 */
+    private array $functionUses = [];
+
     /** @var list<string> */
     private array $runtimeDeclarations = [];
 
@@ -109,6 +112,19 @@ final class NamespaceContext
         return $this->qualify($name->toString());
     }
 
+    /**
+     * 呼び出しの関数名を解決する。修飾のない名前には `use function` だけが効く。
+     * 未インポートの名前はグローバルへのフォールバックがあるので、実在の関数とは限らない。
+     */
+    public function resolveFunctionName(Node\Name $name): string
+    {
+        if (!$name->isUnqualified()) {
+            return $this->resolveClassName($name);
+        }
+
+        return $this->functionUses[$name->toLowerString()] ?? $this->qualify($name->toString());
+    }
+
     private function qualify(string $name): string
     {
         return $this->namespace === '' ? $name : $this->namespace . '\\' . $name;
@@ -127,26 +143,28 @@ final class NamespaceContext
                 $this->collect($statement->stmts);
             } elseif ($statement instanceof Node\Stmt\Use_) {
                 // CP-91
-                if ($statement->type === Node\Stmt\Use_::TYPE_NORMAL) {
-                    foreach ($statement->uses as $use) {
-                        $this->addUse($use, '');
-                    }
+                foreach ($statement->uses as $use) {
+                    $this->addUse($use, $statement->type, '');
                 }
             } elseif ($statement instanceof Node\Stmt\GroupUse) {
                 foreach ($statement->uses as $use) {
-                    $isNormal = $statement->type === Node\Stmt\Use_::TYPE_NORMAL
-                        || ($statement->type === Node\Stmt\Use_::TYPE_UNKNOWN && $use->type === Node\Stmt\Use_::TYPE_NORMAL);
-                    if ($isNormal) {
-                        $this->addUse($use, $statement->prefix->toString() . '\\');
-                    }
+                    $type = $statement->type === Node\Stmt\Use_::TYPE_UNKNOWN ? $use->type : $statement->type;
+                    $this->addUse($use, $type, $statement->prefix->toString() . '\\');
                 }
             }
         }
     }
 
-    private function addUse(Node\UseItem $use, string $prefix): void
+    private function addUse(Node\UseItem $use, int $type, string $prefix): void
     {
-        $this->uses[$use->getAlias()->toString()] = $prefix . $use->name->toString();
+        $alias = $use->getAlias()->toString();
+        $fullName = $prefix . $use->name->toString();
+
+        if ($type === Node\Stmt\Use_::TYPE_NORMAL) {
+            $this->uses[$alias] = $fullName;
+        } elseif ($type === Node\Stmt\Use_::TYPE_FUNCTION) {
+            $this->functionUses[\strtolower($alias)] = $fullName;
+        }
     }
 
     /**

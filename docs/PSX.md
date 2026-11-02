@@ -128,6 +128,24 @@ return fc(fn (array $props, UserRepository $users, int $limit = 10, ?string $tit
 
 コンパイラは DI を知りません。パラメータの情報を書くだけで、解決はランタイムの `PsxArgumentResolver` に host が渡す実装が行います。
 
+`fc()` と `deferred()` には、クロージャかアロー関数を呼び出しの中に直接書きます。コンパイラはファイルを実行せずにパラメータを読むので、変数などに入れて渡すとコンパイルエラーになります。
+
+```php
+// 書ける
+return deferred(fn (array $props, UserRepository $u) => <p />, new Defer('a'));
+return deferred(defer: new Defer('b'), component: fn (array $props, UserRepository $u) => <p />);
+
+// use function の別名も書ける
+use function Polidog\Rosanna\Defer\deferred as lazy;
+return lazy(fn (array $props, UserRepository $u) => <p />, new Defer('c'));
+
+// コンパイルエラー
+$fn = fn (array $props, UserRepository $u) => <p />;
+return deferred($fn, new Defer('d'));
+```
+
+別名は元の関数名で判定します。`use function Lib\wrap as fc;` の `fc()` は `wrap()` として扱い、中を読みません。
+
 ## 構文
 
 ### タグ
