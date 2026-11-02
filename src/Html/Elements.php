@@ -636,10 +636,13 @@ final class H
         return self::element('button', get_defined_vars());
     }
 
-    /** @param array<mixed>|Element|Renderable|\Stringable|string|int|float|bool|null $children */
+    /**
+     * @param list<string|int|float>|string|int|float|null $value 選ぶ option の値。`multiple` なら配列でもよい (RT-3.17)
+     * @param array<mixed>|Element|Renderable|\Stringable|string|int|float|bool|null $children
+     */
     public static function select(
         ?string $name = null,
-        string|int|float|null $value = null,
+        array|string|int|float|null $value = null,
         ?bool $disabled = null,
         ?bool $multiple = null,
         ?bool $required = null,

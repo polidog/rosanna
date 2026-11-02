@@ -74,6 +74,8 @@ echo new Rosanna()->renderElement(H::div(className: 'card', children: [
 
 - `children` には `Element`、文字列、数値、`Stringable`、`Renderable`、`null`、bool、それらの配列を渡せます。`null` と bool は何も出しません。それ以外は例外です。
 - テキストと属性の値はエスケープします。PHP で書けない属性名はスプレッドで渡します。
+- `textarea` と `select` には `value` を渡せます。`H::select(name: 'plan', value: 'b', children: [...])` は `value` 属性を出さず、`optgroup` の中も含めて値の合う `option` に `selected` を付けます。値は文字列として比べ、`value` のない `option` は HTML と同じくテキストで比べます。`multiple` なら配列を渡します。合うものがなければ何も付けません。
+- `option` 自身の `selected` は、`select` の `value` によらずその `option` について優先します。単一選択で複数の `option` に `selected` が付くと、ブラウザは最後のものを選びます。
 - `Rosanna` を通さずに `Element` を描画するなら、`new Renderer()` を引数なしで使えます。
 
 ## 状態のないコンポーネント

@@ -170,6 +170,7 @@ Status: 2026-11-01、usePHP `e073bff` (v0.10.0) の `README.ja.md`、`docs/PSX.m
 | `children` の型 (#118) | 動く | `tests/Html/ElementAttributeTypesTest.php` |
 | 条件付きの描画、配列の平坦化 | 動く | `RendererOutputTest::testRT32*` |
 | `textarea` の `value` | 動く | `ElementAttributesTest::testRT25*`、`rosanna-state:ReadmeExamplesTest::testElementsRenderAsDocumented` |
+| `select` の `value` | 動く | `SelectValueTest::testRT317*`、`tests/browser/select.spec.ts` |
 | 属性の bool、`aria-*` | 動く | `RendererOutputTest::testRT39*` |
 | `<style>`、`<script>`、foreign content | 動く | `SecurityHardeningTest::testRT312*`、`testRT314*` |
 | 4 つのイベントと未対応イベントの拒否 | 動く | `rosanna-state:tests/Runtime/ElementEventsTest.php`、`rosanna-state:tests/browser/events.spec.ts` |

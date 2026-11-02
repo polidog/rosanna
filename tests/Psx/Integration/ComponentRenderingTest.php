@@ -33,6 +33,19 @@ final class ComponentRenderingTest extends TestCase
         self::assertSame('<b>Hello x</b>', $html);
     }
 
+    /** RT-3.17: PSX の `<select value>` も同じ描画を通る */
+    public function testSelectValueMarksTheMatchingOption(): void
+    {
+        self::assertSame(
+            '<select name="plan"><option value="1">A</option><optgroup><option value="2" selected>B</option></optgroup></select>',
+            $this->html('<select name="plan" value={$p[\'v\']}><option value="1">A</option><optgroup><option value="2">B</option></optgroup></select>', ['v' => 2]),
+        );
+        self::assertSame(
+            '<select multiple><option selected>A</option><option selected>B</option><option>C</option></select>',
+            $this->html('<select multiple value={$p[\'v\']}><option>A</option><option>B</option><option>C</option></select>', ['v' => ['A', 'B']]),
+        );
+    }
+
     /** CP-60、CP-90 */
     public function testNestedComponentTagsResolveAcrossFiles(): void
     {
