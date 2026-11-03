@@ -4,6 +4,16 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\Psx;
 
+use function Polidog\Rosanna\Internal\Functions\Psx\absolutePath;
+use function Polidog\Rosanna\Internal\Functions\Psx\buildId;
+use function Polidog\Rosanna\Internal\Functions\Psx\cachePathFor;
+use function Polidog\Rosanna\Internal\Functions\Psx\collectSourceFiles;
+use function Polidog\Rosanna\Internal\Functions\Psx\ensureDirectory;
+use function Polidog\Rosanna\Internal\Functions\Psx\manifestEntries;
+use function Polidog\Rosanna\Internal\Functions\Psx\modificationTimes;
+use function Polidog\Rosanna\Internal\Functions\Psx\readMeta;
+use function Polidog\Rosanna\Internal\Functions\Psx\removeStaleDeferredManifest;
+
 use Polidog\Rosanna\Runtime\PsxRenderer;
 
 /**
@@ -47,17 +57,12 @@ final class CompileCommand
 
     public static function cachePathFor(string $cacheDir, string $sourcePath): string
     {
-        $absolute = \realpath($sourcePath);
-
-        return \rtrim($cacheDir, \DIRECTORY_SEPARATOR)
-            . \DIRECTORY_SEPARATOR
-            . \sha1($absolute === false ? $sourcePath : $absolute)
-            . '.php';
+        return cachePathFor($cacheDir, $sourcePath);
     }
 
     public static function metaPathFor(string $cacheDir, string $sourcePath): string
     {
-        return self::cachePathFor($cacheDir, $sourcePath) . '.meta';
+        return cachePathFor($cacheDir, $sourcePath) . '.meta';
     }
 
     /**
@@ -88,7 +93,7 @@ final class CompileCommand
             }
         }
 
-        $cacheDir = $this->absolutePath($cache ?? self::DEFAULT_CACHE_SUBDIR, $cwd);
+        $cacheDir = absolutePath($cache ?? self::DEFAULT_CACHE_SUBDIR, $cwd);
 
         if ($clean) {
             return $this->clean($cacheDir);
@@ -104,14 +109,14 @@ final class CompileCommand
         $givenPaths = $paths === [] ? ['components'] : $paths;
         $missing = \array_filter(
             $givenPaths,
-            fn(string $path): bool => !\file_exists($this->absolutePath($path, $cwd)),
+            static fn(string $path): bool => !\file_exists(absolutePath($path, $cwd)),
         );
         if ($missing !== []) {
             $this->println('Error: path not found: ' . \implode(', ', $missing));
 
             return 1;
         }
-        $absolutePaths = \array_map(fn(string $path): string => $this->absolutePath($path, $cwd), $givenPaths);
+        $absolutePaths = \array_map(static fn(string $path): string => absolutePath($path, $cwd), $givenPaths);
 
         if ($watch) {
             $this->watch($absolutePaths, $cacheDir);
@@ -136,7 +141,7 @@ final class CompileCommand
             \clearstatcache();
 
             try {
-                $current = $this->modificationTimes($paths);
+                $current = modificationTimes($paths);
             } catch (\Throwable $e) {
                 $this->println('Error: ' . $e->getMessage());
                 $current = $seen;
@@ -152,23 +157,6 @@ final class CompileCommand
         }
     }
 
-    /**
-     * @param list<string> $paths
-     *
-     * @return array<string, int>
-     */
-    private function modificationTimes(array $paths): array
-    {
-        $times = [];
-        foreach ($this->collectSourceFiles($paths) as $file) {
-            $mtime = \filemtime($file);
-            if ($mtime !== false) {
-                $times[$file] = $mtime;
-            }
-        }
-
-        return $times;
-    }
 
     /**
      * 1 回分のコンパイル。失敗のメッセージを表示して 1 を返し、例外を外へ出さない。
@@ -178,7 +166,7 @@ final class CompileCommand
     private function build(array $paths, string $cacheDir, bool $check): int
     {
         try {
-            $files = $this->collectSourceFiles($paths);
+            $files = collectSourceFiles($paths);
             if ($files === []) {
                 $this->println('No .psx files found in: ' . \implode(', ', $paths));
 
@@ -186,7 +174,7 @@ final class CompileCommand
             }
 
             if (!$check) {
-                $this->ensureDirectory($cacheDir);
+                ensureDirectory($cacheDir);
             }
 
             return $this->compileFiles($files, $cacheDir, $check);
@@ -249,12 +237,12 @@ final class CompileCommand
         $cachedCount = 0;
 
         foreach ($sources as $file => $source) {
-            $artifactPath = self::cachePathFor($cacheDir, $file);
+            $artifactPath = cachePathFor($cacheDir, $file);
             $metaPath = self::metaPathFor($cacheDir, $file);
             $hash = \hash('sha256', self::CACHE_VERSION . "\0" . $source);
 
             // CP-121: 変更のないファイルでも、ほかのファイルの削除で参照が切れることがある
-            $meta = $this->readMeta($metaPath);
+            $meta = readMeta($metaPath);
             if ($meta !== null
                 && $meta['hash'] === $hash
                 && \is_file($artifactPath)
@@ -297,8 +285,8 @@ final class CompileCommand
         }
 
         $manifestPath = $cacheDir . \DIRECTORY_SEPARATOR . PsxRenderer::MANIFEST_FILENAME;
-        $entries = $this->manifestEntries($components, $compiled, $cacheDir);
-        $buildId = $this->buildId($sources, $compiled, $cacheDir, $entries);
+        $entries = manifestEntries($components, $compiled, $cacheDir);
+        $buildId = buildId($sources, $compiled, $cacheDir, $entries);
         $manifestSource = \implode("\n", ['<?php', self::GENERATED_COMMENT, 'return [', '    ' . \var_export(PsxRenderer::BUILD_ID_KEY, true) . ' => ' . \var_export($buildId, true) . ',', ...$entries, '];']) . "\n";
         if (self::writeIfChanged($manifestPath, $manifestSource, $check)) {
             $stale[] = $manifestPath;
@@ -306,7 +294,7 @@ final class CompileCommand
 
         if ($this->afterManifest === null) {
             $deferredPath = $cacheDir . \DIRECTORY_SEPARATOR . PsxRenderer::DEFERRED_MANIFEST_FILENAME;
-            if ($this->removeStaleDeferredManifest($deferredPath, $check)) {
+            if (removeStaleDeferredManifest($deferredPath, $check)) {
                 $stale[] = $deferredPath;
             }
         } elseif (!$staleArtifacts || !$check) {
@@ -332,140 +320,10 @@ final class CompileCommand
         return 0;
     }
 
-    /**
-     * @param array<string, string> $components FQCN => ソースのパス
-     * @param array<string, string> $compiled ソースのパス => 成果物
-     *
-     * @return list<string> manifest の項目の行
-     */
-    private function manifestEntries(array $components, array $compiled, string $cacheDir): array
-    {
-        \ksort($components, \SORT_STRING);
 
-        $parameters = new ComponentParameters();
-        $lines = [];
-        foreach ($components as $fqcn => $file) {
-            $artifactPath = self::cachePathFor($cacheDir, $file);
-            // `--check` では成果物を書かないので、今回コンパイルしたものはメモリから読む
-            $artifact = $compiled[$file] ?? @\file_get_contents($artifactPath);
-            $entries = \is_string($artifact) ? $parameters->collect($artifact, $fqcn) : [];
 
-            $lines[] = '    ' . \var_export($fqcn, true) . ' => [';
-            $lines[] = "        'file' => " . \var_export($artifactPath, true) . ',';
-            if ($entries === []) {
-                $lines[] = "        'parameters' => [],";
-            } else {
-                $lines[] = "        'parameters' => [";
-                foreach ($entries as $entry) {
-                    $pairs = [];
-                    foreach ($entry as $key => $value) {
-                        $pairs[] = "'$key' => " . \var_export($value, true);
-                    }
-                    $lines[] = '            [' . \implode(', ', $pairs) . '],';
-                }
-                $lines[] = '        ],';
-            }
-            $lines[] = '    ],';
-        }
 
-        return $lines;
-    }
 
-    /**
-     * 成果物の内容から決まる ID。同じ入力なら同じ値になるので `writeIfChanged()` の判定を壊さない。
-     *
-     * @param array<string, string> $sources ソースのパス => ソース
-     * @param array<string, string> $compiled ソースのパス => 成果物
-     * @param list<string> $entries manifest の項目の行
-     */
-    private function buildId(array $sources, array $compiled, string $cacheDir, array $entries): string
-    {
-        $context = \hash_init('sha256');
-        \hash_update($context, \implode("\n", $entries));
-        foreach (\array_keys($sources) as $file) {
-            $artifact = $compiled[$file] ?? @\file_get_contents(self::cachePathFor($cacheDir, $file));
-            \hash_update($context, "\0" . $file . "\0" . (\is_string($artifact) ? $artifact : ''));
-        }
-
-        return \hash_final($context);
-    }
-
-    /**
-     * CP-136: closure を渡さない compile は defer を調べないので、残っている deferred manifest は古い。
-     *
-     * @return bool 消した (`--check` なら古い) かどうか
-     */
-    private function removeStaleDeferredManifest(string $path, bool $check): bool
-    {
-        if (!\file_exists($path)) {
-            return false;
-        }
-        if (!$check && !@\unlink($path)) {
-            throw new \RuntimeException("Error: failed to remove $path");
-        }
-
-        return true;
-    }
-
-    /**
-     * @param list<string> $paths
-     *
-     * @return list<string> 重複を除いてソートした絶対パス
-     */
-    private function collectSourceFiles(array $paths): array
-    {
-        $files = [];
-        foreach ($paths as $path) {
-            if (\is_file($path)) {
-                if (\str_ends_with($path, '.psx')) {
-                    $files[] = $path;
-                }
-                continue;
-            }
-            if (!\is_dir($path)) {
-                continue;
-            }
-            $iterator = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
-            );
-            foreach ($iterator as $entry) {
-                \assert($entry instanceof \SplFileInfo);
-                if (!$entry->isLink() && $entry->isFile() && \str_ends_with($entry->getPathname(), '.psx')) {
-                    $files[] = $entry->getPathname();
-                }
-            }
-        }
-
-        $absolute = \array_map(static fn(string $file): string => \realpath($file) ?: $file, $files);
-        $unique = \array_values(\array_unique($absolute));
-        \sort($unique);
-
-        return $unique;
-    }
-
-    /**
-     * @return array{hash: string, refs: list<string>}|null
-     */
-    private function readMeta(string $path): ?array
-    {
-        $content = \is_file($path) ? @\file_get_contents($path) : false;
-        if ($content === false) {
-            return null;
-        }
-        $data = \json_decode($content, true);
-        if (!\is_array($data) || !\is_string($data['hash'] ?? null) || !\is_string($data['source'] ?? null) || !\is_array($data['refs'] ?? null)) {
-            return null;
-        }
-        $refs = [];
-        foreach ($data['refs'] as $ref) {
-            if (!\is_string($ref)) {
-                return null;
-            }
-            $refs[] = $ref;
-        }
-
-        return ['hash' => $data['hash'], 'refs' => $refs];
-    }
 
     /**
      * CP-122: 内容が変わるときだけ、同じディレクトリの一時ファイルと rename で書く。
@@ -492,12 +350,6 @@ final class CompileCommand
         return true;
     }
 
-    private function ensureDirectory(string $directory): void
-    {
-        if (!\is_dir($directory) && !@\mkdir($directory, 0o755, true) && !\is_dir($directory)) {
-            throw new \RuntimeException("Error: cannot create cache directory $directory");
-        }
-    }
 
     /**
      * CP-124
@@ -532,22 +384,6 @@ final class CompileCommand
         return 0;
     }
 
-    /**
-     * `$cwd` を基準に絶対パスにする。まだない出力先は、存在する親までを正規化する。
-     */
-    private function absolutePath(string $path, string $cwd): string
-    {
-        if (!\str_starts_with($path, '/') && \preg_match('~^[A-Za-z]:[\\\\/]~', $path) !== 1) {
-            $path = \rtrim($cwd, '/\\') . \DIRECTORY_SEPARATOR . $path;
-        }
-        $real = \realpath($path);
-        if ($real !== false) {
-            return $real;
-        }
-        $parent = \dirname($path);
-
-        return $parent === $path ? $path : $this->absolutePath($parent, $cwd) . \DIRECTORY_SEPARATOR . \basename($path);
-    }
 
     /**
      * CP-126: Relayer は ob_start() で捕まえている。
