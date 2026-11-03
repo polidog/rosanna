@@ -12,12 +12,13 @@ use function Polidog\Rosanna\Internal\Functions\Runtime\attributeName;
 use function Polidog\Rosanna\Internal\Functions\Runtime\firstProp;
 use function Polidog\Rosanna\Internal\Functions\Runtime\isBooleanStringAttribute;
 use function Polidog\Rosanna\Internal\Functions\Runtime\isUrlAttribute;
+use function Polidog\Rosanna\Internal\Functions\Runtime\renderAttributes;
 use function Polidog\Rosanna\Internal\Functions\Runtime\selectValues;
 use function Polidog\Rosanna\Internal\Functions\Runtime\targetsHref;
 
 use Polidog\Rosanna\Runtime\AttributeNames;
 
-/** RT-3.7、RT-3.8、RT-3.9、RT-3.11、RT-3.17 */
+/** RT-3.7、RT-3.8、RT-3.9、RT-3.10、RT-3.11、RT-3.17 */
 final class AttributesTest extends TestCase
 {
     /** @return iterable<string, array{string}> */
@@ -175,5 +176,72 @@ final class AttributesTest extends TestCase
             [E_USER_NOTICE, 'Non-scalar value for attribute "value" (array) was dropped.'],
             [E_USER_NOTICE, 'Non-scalar value for attribute "value" (stdClass) was dropped.'],
         ], $notices);
+    }
+
+    /** @return iterable<string, array{string, array<array-key, mixed>, string}> */
+    public static function renderAttributesCases(): iterable
+    {
+        yield 'no props' => ['div', [], ''];
+        yield 'jsx name' => ['label', ['htmlFor' => 'a', 'className' => 'b'], ' for="a" class="b"'];
+        yield 'escaped value' => ['div', ['title' => '"<&>\''], ' title="&quot;&lt;&amp;&gt;&#039;"'];
+        yield 'int and float' => ['input', ['maxLength' => 3, 'step' => 0.5], ' maxlength="3" step="0.5"'];
+        yield 'true is a bare attribute' => ['input', ['disabled' => true], ' disabled'];
+        yield 'false is dropped' => ['input', ['disabled' => false], ''];
+        yield 'aria bool' => ['div', ['aria-hidden' => true, 'aria-busy' => false], ' aria-hidden="true" aria-busy="false"'];
+        yield 'draggable bool' => ['div', ['draggable' => false], ' draggable="false"'];
+        yield 'dangerous url' => ['a', ['href' => 'javascript:alert(1)', 'id' => 'x'], ' id="x"'];
+        yield 'upper-case url attribute' => ['a', ['HREF' => 'JavaScript:alert(1)'], ''];
+        yield 'safe url' => ['a', ['href' => '/path?a=1&b=2'], ' href="/path?a=1&amp;b=2"'];
+        yield 'url check only on url attributes' => ['div', ['title' => 'javascript:x'], ' title="javascript:x"'];
+        yield 'empty srcdoc' => ['iframe', ['srcdoc' => ''], ' srcdoc=""'];
+        yield 'set targeting href' => ['set', ['attributeName' => 'href', 'to' => 'javascript:x'], ' attributeName="href"'];
+        yield 'set targeting other' => ['set', ['attributeName' => 'fill', 'to' => 'javascript:x'], ' attributeName="fill" to="javascript:x"'];
+        yield 'animate values' => ['animate', ['attributeName' => 'xlink:href', 'values' => '/a;javascript:x'], ' attributeName="xlink:href"'];
+        yield 'not an animation tag' => ['div', ['attributeName' => 'href', 'to' => 'javascript:x'], ' attributeName="href" to="javascript:x"'];
+    }
+
+    /** @param array<array-key, mixed> $props */
+    #[DataProvider('renderAttributesCases')]
+    public function testRenderAttributes(string $lowerTag, array $props, string $expected): void
+    {
+        self::assertSame($expected, renderAttributes($lowerTag, $props));
+    }
+
+    /** @return iterable<string, array{array<array-key, mixed>, string}> */
+    public static function rejectedAttributes(): iterable
+    {
+        yield 'event handler string' => [['onclick' => 'x'], 'Inline event handler attribute'];
+        yield 'event handler bool' => [['onClick' => true], 'Inline event handler attribute'];
+        yield 'event handler null value is still a name' => [['onload' => null], 'Inline event handler attribute'];
+        yield 'srcdoc with value' => [['srcdoc' => '<b>x</b>'], 'The srcdoc attribute is not supported'];
+        yield 'bad name' => [['a b' => 'x'], 'Invalid HTML attribute name'];
+    }
+
+    /** @param array<array-key, mixed> $props */
+    #[DataProvider('rejectedAttributes')]
+    public function testRenderAttributesRejects(array $props, string $message): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage($message);
+
+        renderAttributes('div', $props);
+    }
+
+    public function testRenderAttributesDropsNonScalarValuesWithANotice(): void
+    {
+        $notices = [];
+        set_error_handler(static function (int $level, string $message) use (&$notices): bool {
+            $notices[] = [$level, $message];
+
+            return true;
+        });
+        try {
+            $html = renderAttributes('div', ['className' => ['a'], 'id' => 'x']);
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame(' id="x"', $html);
+        self::assertSame([[E_USER_NOTICE, 'Non-scalar value for attribute "class" (array) was dropped.']], $notices);
     }
 }

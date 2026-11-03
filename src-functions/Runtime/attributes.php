@@ -279,3 +279,60 @@ function selectValues(mixed $value): array
 
     return $values;
 }
+
+/**
+ * 属性の並びを ` name="value"` の連結にする (RT-3.7〜RT-3.11)。`on*` と値のある `srcdoc` は例外、
+ * 危険な URL は属性だけを落とす。スカラーでない値は E_USER_NOTICE で落とす。
+ *
+ * @internal 引数は小文字にしたタグ名と、select の value を取り除いた後の props
+ * @param array<array-key, mixed> $props
+ * @throws \RuntimeException
+ */
+function renderAttributes(string $lowerTag, array $props): string
+{
+    $html = '';
+    $animatesHref = isAnimationTag($lowerTag) && targetsHref($props);
+
+    foreach ($props as $key => $value) {
+        $key = (string) $key;
+        $name = attributeName($key);
+        assertValidAttributeName($name);
+        $lowerName = strtolower($name);
+
+        if (is_bool($value)) {
+            if (isBooleanStringAttribute($lowerName)) {
+                $html .= sprintf(' %s="%s"', $name, $value ? 'true' : 'false');
+            } elseif ($value) {
+                $html .= ' ' . $name;
+            }
+            continue;
+        }
+
+        if (!is_scalar($value)) {
+            trigger_error(sprintf('Non-scalar value for attribute "%s" (%s) was dropped.', $name, get_debug_type($value)), E_USER_NOTICE);
+            continue;
+        }
+
+        $string = (string) $value;
+
+        // RT-3.10 中身が同じオリジンの HTML になるので、スキームの検査では安全にならない
+        if ($lowerName === 'srcdoc' && $string !== '') {
+            throw new \RuntimeException(
+                'The srcdoc attribute is not supported because its value is rendered as HTML in the same origin. '
+                . 'Use src with a separate URL instead.',
+            );
+        }
+
+        if (isUrlAttribute($lowerName) && hasDangerousScheme($string)) {
+            continue;
+        }
+
+        if ($animatesHref && isAnimationValueAttribute($lowerName) && hasDangerousAnimationValue($string)) {
+            continue;
+        }
+
+        $html .= sprintf(' %s="%s"', $name, escape($string));
+    }
+
+    return $html;
+}
