@@ -21,11 +21,12 @@ function svgCases(): array
         $animation,
     ]));
     $xlink = ['xmlns:xlink' => 'http://www.w3.org/1999/xlink'];
+    $upperSet = 'SET'; // 大文字のタグ名を __callStatic に渡す
 
     return [
         'set-to' => $link(H::set(attributeName: 'href', to: $js)),
         'set-to-tab' => $link(H::set(attributeName: 'href', to: "java\tscript:window.__pwned=true")),
-        'set-uppercase-tag' => $link(H::SET(attributeName: 'href', to: $js)),
+        'set-uppercase-tag' => $link(H::$upperSet(attributeName: 'href', to: $js)),
         'set-lowercase-name' => $link(H::set(attributename: 'href', to: $js)),
         'set-xlink' => $link(H::set(attributeName: 'xlink:href', to: $js), $xlink),
         'set-over-safe-href' => $link(H::set(attributeName: 'href', to: $js), [], ['href' => '/other']),

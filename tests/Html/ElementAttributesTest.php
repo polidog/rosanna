@@ -72,7 +72,8 @@ final class ElementAttributesTest extends TestCase
 
     public function testRT23CallStaticKeepsNamedAttributes(): void
     {
-        $element = H::customTag(className: 'x', children: 'y');
+        $tag = 'customTag'; // 専用メソッドのないタグ
+        $element = H::$tag(className: 'x', children: 'y');
         self::assertSame('customTag', $element->type);
         self::assertSame(['className' => 'x'], $element->props);
         self::assertSame(['y'], $element->children);
@@ -81,7 +82,8 @@ final class ElementAttributesTest extends TestCase
     public function testRT23CallStaticRejectsPositionalArguments(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        H::customTag('positional');
+        $tag = 'customTag';
+        H::$tag('positional');
     }
 
     public function testRT25TextareaValueBecomesItsContent(): void

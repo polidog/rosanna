@@ -20,7 +20,11 @@ trait RendersInScope
         return new RenderScope($psx ?? new PsxRenderer());
     }
 
-    /** Element を作るところから同じスコープで動かす */
+    /**
+     * Element を作るところから同じスコープで動かす
+     *
+     * @param callable(): mixed $build Element か文字列を返す
+     */
     private static function html(callable $build, ?RenderScope $scope = null): string
     {
         return RenderContext::run($scope ?? self::scope(), static function () use ($build): string {

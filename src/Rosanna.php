@@ -40,6 +40,7 @@ final class Rosanna
         $this->scopeFactory = $scopeFactory ?? static fn(PsxRenderer $psx, ?RenderScope $outer): RenderScope => new RenderScope($psx, $outer?->state);
     }
 
+    /** @param callable $component コンポーネント本体 */
     public function registerComponent(string $fqcn, callable $component): self
     {
         $this->psx->register($fqcn, $component);

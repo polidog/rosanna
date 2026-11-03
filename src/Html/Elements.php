@@ -13,6 +13,14 @@ use Polidog\Rosanna\Runtime\ResolvesItself;
 /**
  * 要素を作る API。PHP で書けない属性名はスプレッドで渡す。
  * `H::button(...['aria-label' => 'Close'], children: 'x')`
+ *
+ * 専用メソッドのないタグは `__callStatic()` が受ける。テストや fixture で使うものはエディタが見失わないよう宣言しておく。
+ *
+ * @method static Element b(mixed ...$attrs)
+ * @method static Element style(mixed ...$attrs)
+ * @method static Element set(mixed ...$attrs)
+ * @method static Element animate(mixed ...$attrs)
+ * @method static Element text(mixed ...$attrs)
  */
 final class H
 {

@@ -56,6 +56,7 @@ final class PsxRendererTest extends TestCase
         return $path;
     }
 
+    /** @param array<mixed> $parameters manifest の `parameters` */
     private function psxWith(string $fqcn, string $code, array $parameters = []): PsxRenderer
     {
         $psx = new PsxRenderer();
