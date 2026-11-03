@@ -36,7 +36,11 @@ final class PsxRenderer
         return $this;
     }
 
-    /** manifest を介さず登録する。`Rosanna::registerComponent()` のため */
+    /**
+     * manifest を介さず登録する。`Rosanna::registerComponent()` のため
+     *
+     * @param callable $component コンポーネント本体
+     */
     public function register(string $fqcn, callable $component): self
     {
         $this->loaded[$fqcn] = $this->bindArguments($fqcn, [], $component);
@@ -133,6 +137,7 @@ final class PsxRenderer
      * fc() の内側にも効かせる (RT-11.3)。解決はリゾルバーを呼ぶときに読むので、後から差し替えても効く。
      *
      * @param array<mixed> $metadata manifest の `parameters`
+     * @param callable $component コンポーネント本体
      */
     private function bindArguments(string $fqcn, array $metadata, callable $component): callable
     {

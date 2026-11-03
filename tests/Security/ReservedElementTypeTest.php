@@ -86,7 +86,8 @@ final class ReservedElementTypeTest extends TestCase
     /** RT-1.2 `__function_component__` は予約の type でなくなった。実行するものがなく、タグ名として拒否する */
     public function testRT12FunctionComponentIsRefusedAsAnInvalidTagName(): void
     {
-        foreach ([createElement('__function_component__', self::attack()), H::__function_component__(...self::attack())] as $element) {
+        $tag = '__function_component__';
+        foreach ([createElement($tag, self::attack()), H::$tag(...self::attack())] as $element) {
             try {
                 self::html(static fn() => $element);
                 self::fail('Expected RuntimeException');

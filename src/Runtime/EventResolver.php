@@ -13,7 +13,12 @@ final class EventResolver
     /** @var (\Closure(string, mixed): ?EventBinding)|null */
     private static ?\Closure $resolver = null;
 
-    /** @param \Closure(string, mixed): ?EventBinding $resolver */
+    /**
+     * phpactor は `?EventBinding` のような戻り値型を読めないので、正確な型は @psalm-param に書く
+     *
+     * @param \Closure $resolver
+     * @psalm-param \Closure(string, mixed): ?EventBinding $resolver
+     */
     public static function register(\Closure $resolver): void
     {
         self::$resolver = $resolver;

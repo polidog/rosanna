@@ -41,6 +41,8 @@ trait RendersPsx
 
     /**
      * RT-12.8: スコープの中で $fn を動かす。
+     *
+     * @param callable(): mixed $fn
      */
     private function inScope(Rosanna $app, callable $fn): mixed
     {
