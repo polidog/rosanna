@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\Psx;
 
+use function Polidog\Rosanna\Internal\Functions\Psx\endsWithLineComment;
+use function Polidog\Rosanna\Internal\Functions\Psx\singleLineStringLiteral;
+use function Polidog\Rosanna\Internal\Functions\Psx\stringLiteral;
+
 use Polidog\Rosanna\Psx\Ast\PsxAttribute;
 use Polidog\Rosanna\Psx\Ast\PsxCode;
 use Polidog\Rosanna\Psx\Ast\PsxElement;
@@ -101,7 +105,7 @@ final class PsxEmitter
         $this->writeCode($trimmed, $code->regions, true, $leading);
 
         // CP-32: 閉じる `}` は次の行にあるので、この改行でソースより先へ進むことはない
-        if ($this->endsWithLineComment($trimmed)) {
+        if (endsWithLineComment($trimmed)) {
             $this->write("\n");
         }
     }
@@ -166,7 +170,7 @@ final class PsxEmitter
             $this->write('true');
         } elseif (\is_string($value)) {
             $this->syncTo($attribute->valueOffset);
-            $this->write($this->singleLineLiteral($value));
+            $this->write(singleLineStringLiteral($value));
         } else {
             $this->writeExpression($value);
         }
@@ -214,32 +218,8 @@ final class PsxEmitter
             $this->writeExpression($child);
         } else {
             $this->syncTo($child->start);
-            $this->write($child->raw ? $this->literal($child->value) : $this->singleLineLiteral($child->value));
+            $this->write($child->raw ? stringLiteral($child->value) : singleLineStringLiteral($child->value));
         }
-    }
-
-    /**
-     * CP-75
-     */
-    private function literal(string $value): string
-    {
-        return "'" . \addcslashes($value, "'\\") . "'";
-    }
-
-    /**
-     * CP-102: `&#10;` をデコードした改行をそのまま書くと、ソースより行が増える。
-     */
-    private function singleLineLiteral(string $value): string
-    {
-        return \implode(' . "\n" . ', \array_map($this->literal(...), \explode("\n", $value)));
-    }
-
-    private function endsWithLineComment(string $code): bool
-    {
-        $tokens = \token_get_all('<?php ' . $code);
-        $last = \end($tokens);
-
-        return \is_array($last) && $last[0] === \T_COMMENT && !\str_starts_with($last[1], '/*');
     }
 
     private function syncTo(int $offset): void

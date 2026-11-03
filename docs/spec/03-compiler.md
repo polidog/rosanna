@@ -28,7 +28,7 @@ Status: Draft (2026-11-01、usePHP v0.10.0 `e073bff` / Relayer main 9566b0c で�
 | クラス | `Polidog\Rosanna\Psx\Compiler` | Relayer の開発時自動コンパイル (`relayer/src/Router/AppRouter.php:1791`) |
 | クラス | `Polidog\Rosanna\Psx\CompileCommand` | `bin/rosanna`、Relayer (`relayer/src/Scaffold/CompileCommand.php:91`、`relayer/src/Psx/PsxComponentRegistrar.php:137`) |
 
-この 2 つ以外は `@internal` とし、互換を約束しない。状態に触らない処理 (ソースへの編集の適用と位置のずらし、パラメータの型の読み取り) は
+この 2 つ以外は `@internal` とし、互換を約束しない。状態に触らない処理 (PSX の始まりを探すトークンの走査、文字列リテラルとテキストの正規化、ソースへの編集の適用と位置のずらし、返すコンポーネントとパラメータの型の読み取り、生成した PHP の構文の検査) は
 `src-functions/Psx` の名前空間 `Polidog\Rosanna\Internal\Functions\Psx` の関数にある。`@internal` で、公開 API ではない。rosanna シリーズ (polidog/rosanna-*) からは使ってよい。
 
 ### 振る舞い

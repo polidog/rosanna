@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\Psx;
 
+use function Polidog\Rosanna\Internal\Functions\Psx\decodeEntities;
+use function Polidog\Rosanna\Internal\Functions\Psx\normalizeText;
 use function Polidog\Rosanna\Internal\Functions\Runtime\isRawTextTag;
 
 use Polidog\Rosanna\Psx\Ast\PsxAttribute;
@@ -103,7 +105,7 @@ final class PsxParser
             $valueOffset = $this->pos;
             $c = $this->peek();
             if ($c === '"' || $c === "'") {
-                $value = $this->decodeEntities($this->readStringLiteral($c));
+                $value = decodeEntities($this->readStringLiteral($c));
             } elseif ($c === '{') {
                 $value = $this->readBraceExpression();
                 if ($value->isBlank()) {
@@ -142,11 +144,11 @@ final class PsxParser
 
             $length = \strcspn($this->source, '<{', $this->pos);
             $text = \substr($this->source, $this->pos, $length);
-            $normalized = $this->normalizeText($text);
+            $normalized = normalizeText($text);
             if ($normalized !== '') {
                 // CP-51: 正規化の後にデコードするので、`&nbsp;` と `&#32;` の空白は残る
                 $children[] = new PsxText(
-                    $this->decodeEntities($normalized),
+                    decodeEntities($normalized),
                     $this->pos + \strspn($text, " \t\r\n\f\v"),
                 );
             }
@@ -254,26 +256,6 @@ final class PsxParser
         $this->pos = $code->end + 1;
 
         return $code;
-    }
-
-    /**
-     * CP-40、CP-41
-     */
-    private function normalizeText(string $text): string
-    {
-        if (\str_contains($text, "\n")) {
-            $text = \preg_replace('/\A[ \t\r\f\v]*\n\s*|\s*\n[ \t\r\f\v]*\z/', '', $text) ?? $text;
-        }
-
-        return \preg_replace('/\s+/', ' ', $text) ?? $text;
-    }
-
-    /**
-     * CP-50
-     */
-    private function decodeEntities(string $text): string
-    {
-        return \html_entity_decode($text, \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
     }
 
     /**

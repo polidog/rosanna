@@ -15,6 +15,7 @@ use PhpParser\NodeFinder;
 use PhpParser\ParserFactory;
 
 use function Polidog\Rosanna\Internal\Functions\Psx\applyEdits;
+use function Polidog\Rosanna\Internal\Functions\Psx\operatorToken;
 use function Polidog\Rosanna\Internal\Functions\Psx\shiftOffsets;
 
 /**
@@ -72,7 +73,7 @@ final class TagOperandLowering
             \assert($operator instanceof BooleanAnd || $operator instanceof BooleanOr
                 || $operator instanceof LogicalAnd || $operator instanceof LogicalOr);
             $isAnd = $operator instanceof BooleanAnd || $operator instanceof LogicalAnd;
-            $token = $this->operatorToken($tokens, $operator);
+            $token = operatorToken($tokens, $operator);
 
             $edits[] = [$operator->getStartFilePos() - $prefixLength, 0, '(('];
             // 演算子の前後の空白は捨てる。改行は行番号のために残す
@@ -85,21 +86,5 @@ final class TagOperandLowering
         }
 
         return [applyEdits($code, $edits), shiftOffsets($regionOffsets, $edits)];
-    }
-
-    /**
-     * 左右のオペランドの間には括弧とコメントと演算子しかない。
-     *
-     * @param array<\PhpParser\Token> $tokens
-     */
-    private function operatorToken(array $tokens, BooleanAnd|BooleanOr|LogicalAnd|LogicalOr $operator): \PhpParser\Token
-    {
-        for ($i = $operator->left->getEndTokenPos() + 1; $i < $operator->right->getStartTokenPos(); $i++) {
-            if (\in_array($tokens[$i]->id, [\T_BOOLEAN_AND, \T_BOOLEAN_OR, \T_LOGICAL_AND, \T_LOGICAL_OR], true)) {
-                return $tokens[$i];
-            }
-        }
-
-        throw new \LogicException('Logical operator token not found between its operands.');
     }
 }
