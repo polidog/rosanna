@@ -9,11 +9,12 @@ use PhpParser\ParserFactory;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
+use function Polidog\Rosanna\Internal\Functions\Psx\componentParameters;
 use function Polidog\Rosanna\Internal\Functions\Psx\returnedComponent;
 
 use Polidog\Rosanna\Psx\NamespaceContext;
 
-/** CP-132: manifest に書くコンポーネントを探す */
+/** CP-132、CP-133: manifest に書くコンポーネントとパラメータを探す */
 final class ComponentsTest extends TestCase
 {
     /** @return iterable<string, array{string, class-string|null, list<string>}> */
@@ -75,6 +76,35 @@ final class ComponentsTest extends TestCase
     }
 
     /** @return array<Node\Stmt> */
+    public function testComponentParametersDescribeEachKind(): void
+    {
+        $compiled = '<?php namespace App; use Lib\\Clock; return fn(array $props, Clock $clock, int $n = 1, ?string $s) => 1;';
+
+        self::assertSame(
+            [
+                ['kind' => 'props', 'name' => 'props'],
+                ['kind' => 'service', 'name' => 'clock', 'service' => 'Lib\\Clock'],
+                ['kind' => 'default', 'name' => 'n', 'value' => '1'],
+                ['kind' => 'null', 'name' => 's'],
+            ],
+            componentParameters($compiled, 'App\\A'),
+        );
+    }
+
+    public function testComponentParametersAreEmptyWithoutAComponentOrForInvalidPhp(): void
+    {
+        self::assertSame([], componentParameters('<?php return 1;', 'App\\A'));
+        self::assertSame([], componentParameters('<?php return fn(', 'App\\A'));
+    }
+
+    public function testComponentParametersRejectAParameterTheManifestCannotDescribe(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('App\\A: cannot describe parameter $n');
+
+        componentParameters('<?php return fn(array $props, int $n) => 1;', 'App\\A');
+    }
+
     private function parse(string $source): array
     {
         return new ParserFactory()->createForNewestSupportedVersion()->parse($source) ?? [];
