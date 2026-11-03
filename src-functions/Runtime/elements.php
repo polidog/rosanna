@@ -9,6 +9,10 @@ namespace Polidog\Rosanna\Internal\Functions\Runtime;
  * それ以外からは使わない。互換性はシリーズの中でだけ揃える。
  */
 
+use function Polidog\Rosanna\Html\resolveRenderables;
+
+use Polidog\Rosanna\Runtime\Element;
+
 /**
  * 補間の前に検証する。要素を黙って落とさない (RT-3.4)。`/D` がないと `$` が末尾の改行の前にも合う
  *
@@ -61,4 +65,20 @@ function isForeignContentRoot(string $lowerTag): bool
 function isAnimationTag(string $lowerTag): bool
 {
     return $lowerTag === 'animate' || $lowerTag === 'set';
+}
+
+/**
+ * 子を resolveRenderables で解決し、Element の子孫も同じく解決する。option の値をテキストから調べるときに使い、
+ * 解決した子を描画にも使って Renderable を 2 回解決しない (RT-3.17)
+ *
+ * @internal
+ * @param array<mixed> $children
+ * @return list<mixed>
+ */
+function resolveDeep(array $children): array
+{
+    return array_map(
+        static fn(mixed $child): mixed => $child instanceof Element ? $child->withChildren(resolveDeep($child->children)) : $child,
+        resolveRenderables($children),
+    );
 }

@@ -222,9 +222,9 @@ interface RenderExtension
 
 ### 属性
 
-- **RT-3.7** 属性名は JSX 名を変換してから検証する。対応表は `Renderer.php:118-272` と同じ内容を持つ
+- **RT-3.7** 属性名は JSX 名を変換してから検証する。対応表は `attributeName` の `match` にある
   (`className`→`class`、`htmlFor`→`for`、`tabIndex`→`tabindex`、`strokeWidth`→`stroke-width`、`xlinkHref`→`xlink:href` など)。
-  表にない名前はそのまま使う。
+  表にない名前はそのまま使う。`AttributeNames::MAP` は互換のために同じ内容で残しており (`@deprecated`)、変換には使わない。
 - **RT-3.8** 変換後の名前が `/^[A-Za-z_:][A-Za-z0-9:_.\-]*$/D` に合わなければ (`assertValidAttributeName`) `RuntimeException`。`/^on[a-z]/i` に合えば、値の型を問わず
   `RuntimeException` (`Renderer.php:801`)。
 - **RT-3.9** 値の出力は次のとおり (`Renderer.php:695`)。
@@ -253,8 +253,8 @@ interface RenderExtension
 
 - **RT-3.17** `select` (大文字小文字を区別しない) の `value` は属性として出さず、子孫の `option` に `selected` を付ける。HTML の `select` に `value` 属性はなく、ブラウザが無視するため。
   - 判定は描画のときに行うので、`optgroup`、配列、`Fragment`、`Renderable`、PSX の `<select value={$x}>`、`RenderExtension` のどの経路でも同じになる。`RenderExtension::renderTag` が受ける `Element` は解決の済んだもので、`select` に `value` がなく、合う `option` に `selected` がある。
-  - `value` はスカラーか、その配列。`multiple` の有無で扱いを変えない。値は `(string)` にして `option` の値と文字列として比べる。`1` と `'1'` は合い、`'1'` と `'01'` は合わない。bool は何も選ばない。スカラーでも配列でもない値と配列の中のスカラーでない値は、RT-3.9 と同じく `E_USER_NOTICE` で捨てる。
-  - `option` の値は `value` 属性。属性が出ないときは、HTML と同じく子孫のテキストの ASCII の空白を詰めて前後を除いたもの。空文字の `value` はテキストに落ちない。テキストを調べた子は描画にも使い、`Renderable` を 2 回解決しない。
+  - `value` はスカラーか、その配列。`multiple` の有無で扱いを変えない。値は `(string)` にして `option` の値と文字列として比べる。`1` と `'1'` は合い、`'1'` と `'01'` は合わない。bool は何も選ばない。スカラーでも配列でもない値と配列の中のスカラーでない値は、RT-3.9 と同じく `E_USER_NOTICE` で捨てる (`selectValues`)。
+  - `option` の値は `value` 属性。属性が出ないときは、HTML と同じく子孫のテキストの ASCII の空白を詰めて前後を除いたもの。空文字の `value` はテキストに落ちない。テキストを調べた子は描画にも使い、`Renderable` を 2 回解決しない (`resolveDeep`)。
   - `option` 自身に `null` でない `selected` があれば、その値に従う。`value` に合っても `selected: false` なら付けず、合わなくても `selected: true` は残る。`value` に合わなければ既定の選択肢が残るよう、`H::option(value: '', selected: true)` のようなプレースホルダーを書けるようにするため。
   - 単一選択で複数の `option` に `selected` が付いたときは、そのまま出力する。HTML の規則でブラウザは文書順の最後を選ぶ。値の重なりも同じ。
   - 合う `option` がなくても例外にせず、何も付けない。
@@ -286,7 +286,7 @@ interface RenderExtension
   - `<svg><style>` のエスケープと、その後の `<style>` が raw text に戻ること。
   - `</script` を子に分割しても拒否すること。
 - 描画できない子 (`object`、`resource`、`Closure`) の拒否。
-- RT-3.17: `tests/Runtime/SelectValueTest.php`、`ComponentRenderingTest::testSelectValueMarksTheMatchingOption` (PSX)。ブラウザが実際に選ぶ値は `tests/browser/select.spec.ts`。
+- RT-3.17: `tests/Runtime/SelectValueTest.php`、値の列挙は `tests/Internal/Functions/Runtime/AttributesTest.php` の `testSelectValues*`、`ComponentRenderingTest::testSelectValueMarksTheMatchingOption` (PSX)。ブラウザが実際に選ぶ値は `tests/browser/select.spec.ts`。
 - RT-3.16: 状態層なしの `wire:*`、`H::defer()` の例外 (`tests/Runtime/WithoutStateLayerTest.php`)。セッションが始まらず `data-rosanna` が出力されないこと (`tests/Runtime/RenderingWithoutStateTest.php`、`tests/Runtime/StateLayerBoundaryTest.php`)。
 
 ## 4〜8. 状態層に移した節
