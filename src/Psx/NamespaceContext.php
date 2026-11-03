@@ -9,6 +9,8 @@ use PhpParser\ErrorHandler\Collecting;
 use PhpParser\Node;
 use PhpParser\ParserFactory;
 
+use function Polidog\Rosanna\Internal\Functions\Psx\hasNamespaceDeclaration;
+
 /**
  * ファイルの `namespace` と `use` を覚え、名前を FQCN にする (§4)。
  *
@@ -50,7 +52,7 @@ final class NamespaceContext
         $context->collect($statements);
 
         $tokens = \token_get_all($source);
-        if ($context->namespace === '' && self::hasNamespaceDeclaration($tokens)) {
+        if ($context->namespace === '' && hasNamespaceDeclaration($tokens)) {
             throw new \RuntimeException(
                 'PSX namespace context: the source has a `namespace` declaration, but no namespace could be '
                 . 'extracted. Check the declaration for syntax errors.',
@@ -165,28 +167,6 @@ final class NamespaceContext
         } elseif ($type === Node\Stmt\Use_::TYPE_FUNCTION) {
             $this->functionUses[\strtolower($alias)] = $fullName;
         }
-    }
-
-    /**
-     * コメントや文字列の中の「namespace foo」を宣言と見間違えないよう、トークンで判定する。
-     *
-     * @param array<array{0: int, 1: string, 2: int}|string> $tokens
-     */
-    private static function hasNamespaceDeclaration(array $tokens): bool
-    {
-        $afterKeyword = false;
-        foreach ($tokens as $token) {
-            if (\is_array($token) && \in_array($token[0], [\T_WHITESPACE, \T_COMMENT, \T_DOC_COMMENT], true)) {
-                continue;
-            }
-            if ($afterKeyword && $token !== '{') {
-                return true;
-            }
-            // `namespace { ... }` は名前のないグローバルの宣言で、正しい
-            $afterKeyword = \is_array($token) && $token[0] === \T_NAMESPACE;
-        }
-
-        return false;
     }
 
     /**
