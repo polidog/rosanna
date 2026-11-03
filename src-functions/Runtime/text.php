@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\Internal\Functions\Runtime;
 
+/*
+ * ここの関数は @internal で、公開 API ではない。rosanna シリーズ (polidog/rosanna-*) からは使ってよいが、
+ * それ以外からは使わない。互換性はシリーズの中でだけ揃える。
+ */
+
 use Polidog\Rosanna\Runtime\Element;
 
 /**
@@ -33,7 +38,7 @@ function collapseWhitespace(string $text): string
 }
 
 /**
- * 子孫のテキストを連結する。Renderable は見ないので、解決してから渡す
+ * 子孫のテキストを連結する。配列は平らにして読む。Renderable は見ないので、解決してから渡す
  *
  * @internal
  * @param array<mixed> $children
@@ -44,6 +49,8 @@ function textOf(array $children): string
     foreach ($children as $child) {
         if ($child instanceof Element) {
             $text .= textOf($child->children);
+        } elseif (is_array($child)) {
+            $text .= textOf($child);
         } elseif (is_string($child) || is_int($child) || is_float($child) || $child instanceof \Stringable) {
             $text .= (string) $child;
         }

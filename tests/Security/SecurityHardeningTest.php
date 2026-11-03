@@ -32,10 +32,11 @@ final class SecurityHardeningTest extends TestCase
         }
     }
 
-    public function testRT311HarmlessUrlsAreEmittedEscaped(): void
+    public function testRT311HarmlessUrlsAreEmittedUnchangedExceptEscaping(): void
     {
         self::assertSame('<a href="https://example.com/?a=1&amp;b=2"></a>', self::html(static fn() => H::a(href: 'https://example.com/?a=1&b=2')));
         self::assertSame('<a href="#javascript:x"></a>', self::html(static fn() => H::a(href: '#javascript:x')));
+        self::assertSame("<a href=\"/a\tb\"></a>", self::html(static fn() => H::a(href: "/a\tb")));
     }
 
     public function testRT311OtherAttributesAreNotInspected(): void

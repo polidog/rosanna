@@ -37,7 +37,7 @@ final class TextTest extends TestCase
 
     public function testTextOfJoinsDescendants(): void
     {
-        self::assertSame('a1b2.5', textOf(['a', 1, new Element('b', [], ['b', null, true]), 2.5, ['ignored']]));
+        self::assertSame('a1b2.5cd', textOf(['a', 1, new Element('b', [], ['b', null, true]), 2.5, ['c', [new Element('i', [], ['d'])]]]));
     }
 
     public function testJoinRawTextFlattensArrays(): void
