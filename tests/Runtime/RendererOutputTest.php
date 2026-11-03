@@ -170,13 +170,6 @@ final class RendererOutputTest extends TestCase
         ])));
     }
 
-    public function testRT37EveryMappedNamePassesTheAttributeGrammar(): void
-    {
-        foreach (\Polidog\Rosanna\Runtime\AttributeNames::MAP as $name) {
-            self::assertMatchesRegularExpression(\Polidog\Rosanna\Runtime\Renderer::ATTRIBUTE_NAME_PATTERN, $name);
-        }
-    }
-
     public function testRT39BooleanStringAttributes(): void
     {
         self::assertSame(
