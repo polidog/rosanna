@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Polidog\Rosanna\Psx;
 
 use function Polidog\Rosanna\Internal\Functions\Psx\endsWithLineComment;
+use function Polidog\Rosanna\Internal\Functions\Psx\lowerTagOperands;
 use function Polidog\Rosanna\Internal\Functions\Psx\singleLineStringLiteral;
 use function Polidog\Rosanna\Internal\Functions\Psx\stringLiteral;
 
@@ -35,17 +36,13 @@ final class PsxEmitter
 
     private int $line = 1;
 
-    private readonly TagOperandLowering $lowering;
-
     /** @var list<PsxCode> 書き出した `{式}` */
     private array $expressions = [];
 
     public function __construct(
         private readonly string $source,
         private readonly NamespaceContext $context,
-    ) {
-        $this->lowering = new TagOperandLowering();
-    }
+    ) {}
 
     public function emitFile(PsxCode $code): string
     {
@@ -80,7 +77,7 @@ final class PsxEmitter
             return;
         }
 
-        [$lowered, $offsets] = $this->lowering->lower(
+        [$lowered, $offsets] = lowerTagOperands(
             $code,
             $isExpression,
             \array_map(static fn(PsxRegion $region): int => $region->codeOffset - $trimmed, $regions),

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\Internal\Functions\Psx;
 
-use Polidog\Rosanna\Psx\ComponentParameters;
-
 /*
  * ここの関数は @internal で、公開 API ではない。rosanna シリーズ (polidog/rosanna-*) からは使ってよいが、
  * それ以外からは使わない。互換性はシリーズの中でだけ揃える。
@@ -38,13 +36,12 @@ function manifestEntries(array $components, array $compiled, string $cacheDir): 
 {
     \ksort($components, \SORT_STRING);
 
-    $parameters = new ComponentParameters();
     $lines = [];
     foreach ($components as $fqcn => $file) {
         $artifactPath = cachePathFor($cacheDir, $file);
         // `--check` では成果物を書かないので、今回コンパイルしたものはメモリから読む
         $artifact = $compiled[$file] ?? @\file_get_contents($artifactPath);
-        $entries = \is_string($artifact) ? $parameters->collect($artifact, $fqcn) : [];
+        $entries = \is_string($artifact) ? componentParameters($artifact, $fqcn) : [];
 
         $lines[] = '    ' . \var_export($fqcn, true) . ' => [';
         $lines[] = "        'file' => " . \var_export($artifactPath, true) . ',';

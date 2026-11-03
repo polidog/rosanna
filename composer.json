@@ -31,6 +31,7 @@
             "src-functions/Runtime/text.php",
             "src-functions/Runtime/urls.php",
             "src-functions/Psx/edits.php",
+            "src-functions/Psx/lowering.php",
             "src-functions/Psx/types.php",
             "src-functions/Psx/tokens.php",
             "src-functions/Psx/literals.php",
