@@ -169,6 +169,11 @@ namespace Polidog\Rosanna\Runtime;
 
 final class Renderer
 {
+    /** @deprecated 互換のために残している。検査には使わない (RT-3.4) */
+    public const TAG_NAME_PATTERN = '/^[A-Za-z][A-Za-z0-9\-]*$/';
+    /** @deprecated 互換のために残している。検査には使わない (RT-3.8) */
+    public const ATTRIBUTE_NAME_PATTERN = '/^[A-Za-z_:][A-Za-z0-9:_.\-]*$/';
+
     public function __construct(?RenderExtension $extension = null, ?DeferredRenderer $deferred = null);
     public function renderElement(Element|string $element): string;
 }

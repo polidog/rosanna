@@ -30,6 +30,18 @@ use function Polidog\Rosanna\Internal\Functions\Runtime\textOf;
  */
 final class Renderer
 {
+    /**
+     * @deprecated 互換のために残している。検査には使っておらず、Renderer は `/D` 付きの同じ正規表現で検査する
+     *             (Internal\Functions\Runtime\assertValidTagName)。この値は末尾の改行の前にも `$` が合う
+     */
+    public const string TAG_NAME_PATTERN = '/^[A-Za-z][A-Za-z0-9\-]*$/';
+
+    /**
+     * @deprecated 互換のために残している。検査には使っておらず、Renderer は `/D` 付きの同じ正規表現で検査する
+     *             (Internal\Functions\Runtime\assertValidAttributeName)。この値は末尾の改行の前にも `$` が合う
+     */
+    public const string ATTRIBUTE_NAME_PATTERN = '/^[A-Za-z_:][A-Za-z0-9:_.\-]*$/';
+
     private int $foreignContentDepth = 0;
 
     /** @var list<string> 開いている、中身をテキストとして読む要素 (isTextOnlyAncestor) */

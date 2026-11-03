@@ -7,8 +7,14 @@ namespace Polidog\Rosanna\Tests\Runtime;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Polidog\Rosanna\Html\H;
+
+use function Polidog\Rosanna\Internal\Functions\Runtime\assertValidAttributeName;
+use function Polidog\Rosanna\Internal\Functions\Runtime\assertValidTagName;
+
+use Polidog\Rosanna\Runtime\AttributeNames;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\Renderable;
+use Polidog\Rosanna\Runtime\Renderer;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
 use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
 
@@ -164,6 +170,28 @@ final class RendererOutputTest extends TestCase
         self::assertSame('<div class="c" for="f" tabindex="1" stroke-width="2" xlink:href="/x" unknownName="u"></div>', self::html(static fn() => new Element('div', [
             'className' => 'c', 'htmlFor' => 'f', 'tabIndex' => 1, 'strokeWidth' => 2, 'xlinkHref' => '/x', 'unknownName' => 'u',
         ])));
+    }
+
+    /** 互換のために残した定数は、末尾の改行を除いて関数の検査と同じ名前を通す */
+    public function testDeprecatedNamePatternsAgreeWithTheChecks(): void
+    {
+        foreach (['div', 'my-widget', 'linearGradient', '1a', 'a b', '', 'svg:rect'] as $tag) {
+            self::assertSame(preg_match(Renderer::TAG_NAME_PATTERN, $tag) === 1, self::passes(static fn() => assertValidTagName($tag)), $tag);
+        }
+        foreach (['data-x', 'xml:lang', '_x', 'a b', 'a=b', '', '1a', ...array_values(AttributeNames::MAP)] as $name) {
+            self::assertSame(preg_match(Renderer::ATTRIBUTE_NAME_PATTERN, $name) === 1, self::passes(static fn() => assertValidAttributeName($name)), $name);
+        }
+    }
+
+    private static function passes(\Closure $check): bool
+    {
+        try {
+            $check();
+
+            return true;
+        } catch (\RuntimeException) {
+            return false;
+        }
     }
 
     public function testRT39BooleanStringAttributes(): void
