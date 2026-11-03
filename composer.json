@@ -29,7 +29,9 @@
             "src-functions/Runtime/attributes.php",
             "src-functions/Runtime/elements.php",
             "src-functions/Runtime/text.php",
-            "src-functions/Runtime/urls.php"
+            "src-functions/Runtime/urls.php",
+            "src-functions/Psx/edits.php",
+            "src-functions/Psx/types.php"
         ]
     },
     "autoload-dev": {

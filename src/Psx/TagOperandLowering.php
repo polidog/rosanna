@@ -14,6 +14,9 @@ use PhpParser\Node\Expr\FuncCall;
 use PhpParser\NodeFinder;
 use PhpParser\ParserFactory;
 
+use function Polidog\Rosanna\Internal\Functions\Psx\applyEdits;
+use function Polidog\Rosanna\Internal\Functions\Psx\shiftOffsets;
+
 /**
  * 右辺にタグを含む `&&`、`||`、`and`、`or` を、オペランドを返す三項演算子に書き換える (CP-65〜CP-68)。
  *
@@ -81,28 +84,7 @@ final class TagOperandLowering
             $edits[] = [$operator->getEndFilePos() + 1 - $prefixLength, 0, $isAnd ? ') : false)' : '))'];
         }
 
-        return [$this->applyEdits($code, $edits), $this->shiftOffsets($regionOffsets, $edits)];
-    }
-
-    /**
-     * 領域の先頭と同じ位置の編集は領域の前に差し込まれる。領域の終端の編集は先頭より後ろなので動かさない。
-     *
-     * @param list<int> $offsets
-     * @param list<array{int, int, string}> $edits
-     * @return list<int>
-     */
-    private function shiftOffsets(array $offsets, array $edits): array
-    {
-        return \array_map(static function (int $offset) use ($edits): int {
-            $shifted = $offset;
-            foreach ($edits as [$position, $length, $text]) {
-                if ($position <= $offset) {
-                    $shifted += \strlen($text) - $length;
-                }
-            }
-
-            return $shifted;
-        }, $offsets);
+        return [applyEdits($code, $edits), shiftOffsets($regionOffsets, $edits)];
     }
 
     /**
@@ -119,23 +101,5 @@ final class TagOperandLowering
         }
 
         throw new \LogicException('Logical operator token not found between its operands.');
-    }
-
-    /**
-     * @param list<array{int, int, string}> $edits 位置、置き換える長さ、差し込む文字列
-     */
-    private function applyEdits(string $code, array $edits): string
-    {
-        // usort は安定なので、同じ位置の編集は積んだ順のまま
-        \usort($edits, static fn(array $a, array $b): int => $a[0] <=> $b[0]);
-
-        $output = '';
-        $cursor = 0;
-        foreach ($edits as [$offset, $length, $text]) {
-            $output .= \substr($code, $cursor, $offset - $cursor) . $text;
-            $cursor = $offset + $length;
-        }
-
-        return $output . \substr($code, $cursor);
     }
 }

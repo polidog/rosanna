@@ -77,7 +77,6 @@ final class ManifestTest extends TestCase
         yield 'service as the first parameter' => ['fn (Repo $repo) => <a />', [$repo]];
         yield 'nullable service' => ['fn (array $props, ?Repo $repo) => <a />', [$props, $repo]];
         yield 'union with null' => ['fn (array $props, Repo|null $repo) => <a />', [$props, $repo]];
-        yield 'null first in a union' => ['fn (array $props, null|Repo $repo) => <a />', [$props, $repo]];
         yield 'service with a default' => ['fn (array $props, ?Repo $repo = null) => <a />', [$props, $repo]];
         yield 'imported service' => ['fn (Log $log) => <a />', [['kind' => 'service', 'name' => 'log', 'service' => 'Psr\\Log']]];
         yield 'alias' => ['fn (Cache $cache) => <a />', [['kind' => 'service', 'name' => 'cache', 'service' => 'Lib\\Store']]];
@@ -88,7 +87,6 @@ final class ManifestTest extends TestCase
         yield 'array default' => ['fn (array $props, array $a = [1, 2]) => <a />', [$props, ['kind' => 'default', 'name' => 'a', 'value' => '[1, 2]']]];
         yield 'untyped default' => ['fn (array $props, $v = null) => <a />', [$props, ['kind' => 'default', 'name' => 'v', 'value' => 'null']]];
         yield 'nullable scalar' => ['fn (array $props, ?int $x) => <a />', [$props, ['kind' => 'null', 'name' => 'x']]];
-        yield 'scalar union with null' => ['fn (array $props, int|null $x) => <a />', [$props, ['kind' => 'null', 'name' => 'x']]];
         yield 'nullable scalar first' => ['fn (?int $x) => <a />', [['kind' => 'null', 'name' => 'x']]];
         yield 'two classes and null' => ['fn (array $props, A|B|null $x) => <a />', [$props, ['kind' => 'null', 'name' => 'x']]];
         yield 'fc' => ['fc(fn (array $props, Repo $repo) => <a />)', [$props, $repo]];

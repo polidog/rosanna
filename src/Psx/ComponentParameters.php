@@ -9,6 +9,9 @@ use PhpParser\Node;
 use PhpParser\ParserFactory;
 use PhpParser\PrettyPrinter\Standard;
 
+use function Polidog\Rosanna\Internal\Functions\Psx\allowsNullType;
+use function Polidog\Rosanna\Internal\Functions\Psx\serviceType;
+
 /**
  * コンパイル済みのファイルから、manifest の `parameters` を求める (CP-132、CP-133)。
  *
@@ -46,11 +49,11 @@ final class ComponentParameters
 
             if ($index === 0 && ($type === null || ($type instanceof Node\Identifier && $type->toLowerString() === 'array'))) {
                 $parameters[] = ['kind' => 'props', 'name' => $name];
-            } elseif (($service = $this->serviceType($type)) !== null) {
+            } elseif (($service = serviceType($type)) !== null) {
                 $parameters[] = ['kind' => 'service', 'name' => $name, 'service' => $context->resolveClassName($service)];
             } elseif ($parameter->default !== null) {
                 $parameters[] = ['kind' => 'default', 'name' => $name, 'value' => $printer->prettyPrintExpr($parameter->default)];
-            } elseif ($this->allowsNull($type)) {
+            } elseif (allowsNullType($type)) {
                 $parameters[] = ['kind' => 'null', 'name' => $name];
             } else {
                 throw new \RuntimeException(\sprintf(
@@ -140,43 +143,5 @@ final class ComponentParameters
         }
 
         return null;
-    }
-
-    private function serviceType(Node\Identifier|Node\Name|Node\ComplexType|null $type): ?Node\Name
-    {
-        if ($type instanceof Node\Name) {
-            return $type;
-        }
-        if ($type instanceof Node\NullableType) {
-            return $type->type instanceof Node\Name ? $type->type : null;
-        }
-        if ($type instanceof Node\UnionType && $this->allowsNull($type)) {
-            $others = \array_values(\array_filter($type->types, fn(Node $t): bool => !$this->isNull($t)));
-
-            return \count($others) === 1 && $others[0] instanceof Node\Name ? $others[0] : null;
-        }
-
-        return null;
-    }
-
-    private function allowsNull(Node\Identifier|Node\Name|Node\ComplexType|null $type): bool
-    {
-        if ($type instanceof Node\NullableType) {
-            return true;
-        }
-        if ($type instanceof Node\UnionType) {
-            foreach ($type->types as $member) {
-                if ($this->isNull($member)) {
-                    return true;
-                }
-            }
-        }
-
-        return $this->isNull($type);
-    }
-
-    private function isNull(?Node $type): bool
-    {
-        return $type instanceof Node\Identifier && $type->toLowerString() === 'null';
     }
 }
