@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\Internal\Functions\Runtime;
 
+/*
+ * ここの関数は @internal で、公開 API ではない。rosanna シリーズ (polidog/rosanna-*) からは使ってよいが、
+ * それ以外からは使わない。互換性はシリーズの中でだけ揃える。
+ */
+
 /**
  * 補間の前に検証する。要素を黙って落とさない (RT-3.4)。`/D` がないと `$` が末尾の改行の前にも合う
  *

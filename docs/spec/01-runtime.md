@@ -185,7 +185,7 @@ interface RenderExtension
 ```
 
 `new Renderer()` は引数なしで使える。状態に触らない検査と変換 (名前の検証、URL の検査、エスケープなど) は
-`src-functions/Runtime` の名前空間 `Polidog\Rosanna\Internal\Functions\Runtime` の関数にある。`@internal` で、公開 API ではない。ラッパーと snapshot の hidden を付ける `render()` と `renderPartial()` は状態層の `ComponentRenderer` にある (状態層の RT-9.5)。
+`src-functions/Runtime` の名前空間 `Polidog\Rosanna\Internal\Functions\Runtime` の関数にある。`@internal` で、公開 API ではない。rosanna シリーズ (polidog/rosanna-*) からは使ってよい。ラッパーと snapshot の hidden を付ける `render()` と `renderPartial()` は状態層の `ComponentRenderer` にある (状態層の RT-9.5)。
 
 ### エスケープ
 
