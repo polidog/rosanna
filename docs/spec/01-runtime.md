@@ -226,8 +226,8 @@ interface RenderExtension
   (`className`→`class`、`htmlFor`→`for`、`tabIndex`→`tabindex`、`strokeWidth`→`stroke-width`、`xlinkHref`→`xlink:href` など)。
   表にない名前はそのまま使う。`AttributeNames::MAP` は互換のために同じ内容で残しており (`@deprecated`)、変換には使わない。
 - **RT-3.8** 変換後の名前が `/^[A-Za-z_:][A-Za-z0-9:_.\-]*$/D` に合わなければ (`assertValidAttributeName`) `RuntimeException`。`/^on[a-z]/i` に合えば、値の型を問わず
-  `RuntimeException` (`Renderer.php:801`)。
-- **RT-3.9** 値の出力は次のとおり (`Renderer.php:695`)。
+  `RuntimeException` (`assertValidAttributeName`)。
+- **RT-3.9** 値の出力は次のとおり (`renderAttributes`)。
 
 | 値 | 出力 |
 |---|---|
@@ -236,9 +236,9 @@ interface RenderExtension
 | スカラーでない値 | 出さずに `E_USER_NOTICE`。属性名と型名を含める |
 | スカラー | エスケープして `name="value"` |
 
-- **RT-3.10** 値のある `srcdoc` は `RuntimeException`。中身が同じオリジンの HTML になるため。空文字は許す (`Renderer.php:735`)。
+- **RT-3.10** 値のある `srcdoc` は `RuntimeException`。中身が同じオリジンの HTML になるため。空文字は許す (`renderAttributes`)。
 - **RT-3.11** `href src action formaction data poster background xlink:href` (大文字小文字を区別しない) の値は、次の手順で検査する。
-  スキームが `javascript`、`vbscript`、`data` なら、例外にせず属性だけを落とす (`Renderer.php:828`)。
+  スキームが `javascript`、`vbscript`、`data` なら、例外にせず属性だけを落とす (`hasDangerousScheme`)。
   1. TAB、LF、CR を全体から除く。
   2. 先頭の `\x00`〜`\x20` を除く。
   3. 最初の `:` の前を小文字にし、`/^[a-z][a-z0-9+\-.]*$/` に合うものだけをスキームとして扱う。
@@ -286,6 +286,7 @@ interface RenderExtension
   - `<svg><style>` のエスケープと、その後の `<style>` が raw text に戻ること。
   - `</script` を子に分割しても拒否すること。
 - 描画できない子 (`object`、`resource`、`Closure`) の拒否。
+- RT-3.7〜RT-3.11: 値と属性の組み合わせの列挙は `tests/Internal/Functions/Runtime/AttributesTest.php` の `testRenderAttributes*`。
 - RT-3.17: `tests/Runtime/SelectValueTest.php`、値の列挙は `tests/Internal/Functions/Runtime/AttributesTest.php` の `testSelectValues*`、`ComponentRenderingTest::testSelectValueMarksTheMatchingOption` (PSX)。ブラウザが実際に選ぶ値は `tests/browser/select.spec.ts`。
 - RT-3.16: 状態層なしの `wire:*`、`H::defer()` の例外 (`tests/Runtime/WithoutStateLayerTest.php`)。セッションが始まらず `data-rosanna` が出力されないこと (`tests/Runtime/RenderingWithoutStateTest.php`、`tests/Runtime/StateLayerBoundaryTest.php`)。
 

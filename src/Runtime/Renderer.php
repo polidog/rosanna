@@ -5,26 +5,18 @@ declare(strict_types=1);
 namespace Polidog\Rosanna\Runtime;
 
 use function Polidog\Rosanna\Html\resolveRenderables;
-use function Polidog\Rosanna\Internal\Functions\Runtime\assertValidAttributeName;
 use function Polidog\Rosanna\Internal\Functions\Runtime\assertValidTagName;
-use function Polidog\Rosanna\Internal\Functions\Runtime\attributeName;
 use function Polidog\Rosanna\Internal\Functions\Runtime\collapseWhitespace;
 use function Polidog\Rosanna\Internal\Functions\Runtime\escape;
 use function Polidog\Rosanna\Internal\Functions\Runtime\firstProp;
-use function Polidog\Rosanna\Internal\Functions\Runtime\hasDangerousAnimationValue;
-use function Polidog\Rosanna\Internal\Functions\Runtime\hasDangerousScheme;
-use function Polidog\Rosanna\Internal\Functions\Runtime\isAnimationTag;
-use function Polidog\Rosanna\Internal\Functions\Runtime\isAnimationValueAttribute;
-use function Polidog\Rosanna\Internal\Functions\Runtime\isBooleanStringAttribute;
 use function Polidog\Rosanna\Internal\Functions\Runtime\isForeignContentRoot;
 use function Polidog\Rosanna\Internal\Functions\Runtime\isRawTextTag;
 use function Polidog\Rosanna\Internal\Functions\Runtime\isTextOnlyAncestor;
-use function Polidog\Rosanna\Internal\Functions\Runtime\isUrlAttribute;
 use function Polidog\Rosanna\Internal\Functions\Runtime\isVoidTag;
 use function Polidog\Rosanna\Internal\Functions\Runtime\joinRawText;
+use function Polidog\Rosanna\Internal\Functions\Runtime\renderAttributes;
 use function Polidog\Rosanna\Internal\Functions\Runtime\resolveDeep;
 use function Polidog\Rosanna\Internal\Functions\Runtime\selectValues;
-use function Polidog\Rosanna\Internal\Functions\Runtime\targetsHref;
 use function Polidog\Rosanna\Internal\Functions\Runtime\textOf;
 
 /**
@@ -131,7 +123,7 @@ final class Renderer
     private function renderCheckedTag(Element $element, string $tag, string $lowerTag, bool $isVoid): string
     {
         if ($this->extension !== null) {
-            return $this->extension->renderTag($element, $lowerTag, $isVoid, $this->renderAttributes(...), $this->renderContent(...));
+            return $this->extension->renderTag($element, $lowerTag, $isVoid, renderAttributes(...), $this->renderContent(...));
         }
 
         foreach (array_keys($element->props) as $key) {
@@ -140,7 +132,7 @@ final class Renderer
             }
         }
 
-        $attributes = $this->renderAttributes($lowerTag, $element->props);
+        $attributes = renderAttributes($lowerTag, $element->props);
 
         return $isVoid
             ? "<{$tag}{$attributes} />"
@@ -160,56 +152,6 @@ final class Renderer
         $key = $value === true ? '' : (string) $value;
 
         return isset($this->selectValues[$key]) ? $option->withProps([...$option->props, 'selected' => true]) : $option;
-    }
-
-    /** @param array<string, mixed> $props */
-    private function renderAttributes(string $lowerTag, array $props): string
-    {
-        $html = '';
-        $animatesHref = isAnimationTag($lowerTag) && targetsHref($props);
-
-        foreach ($props as $key => $value) {
-            $key = (string) $key;
-            $name = attributeName($key);
-            assertValidAttributeName($name);
-            $lowerName = strtolower($name);
-
-            if (is_bool($value)) {
-                if (isBooleanStringAttribute($lowerName)) {
-                    $html .= sprintf(' %s="%s"', $name, $value ? 'true' : 'false');
-                } elseif ($value) {
-                    $html .= ' ' . $name;
-                }
-                continue;
-            }
-
-            if (!is_scalar($value)) {
-                trigger_error(sprintf('Non-scalar value for attribute "%s" (%s) was dropped.', $name, get_debug_type($value)), E_USER_NOTICE);
-                continue;
-            }
-
-            $string = (string) $value;
-
-            // RT-3.10 中身が同じオリジンの HTML になるので、スキームの検査では安全にならない
-            if ($lowerName === 'srcdoc' && $string !== '') {
-                throw new \RuntimeException(
-                    'The srcdoc attribute is not supported because its value is rendered as HTML in the same origin. '
-                    . 'Use src with a separate URL instead.',
-                );
-            }
-
-            if (isUrlAttribute($lowerName) && hasDangerousScheme($string)) {
-                continue;
-            }
-
-            if ($animatesHref && isAnimationValueAttribute($lowerName) && hasDangerousAnimationValue($string)) {
-                continue;
-            }
-
-            $html .= sprintf(' %s="%s"', $name, escape($string));
-        }
-
-        return $html;
     }
 
     /** @param array<mixed> $children */
