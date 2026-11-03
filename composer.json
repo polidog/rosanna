@@ -25,7 +25,11 @@
             "Polidog\\Rosanna\\": "src/"
         },
         "files": [
-            "src/Html/Elements.php"
+            "src/Html/Elements.php",
+            "src-functions/Runtime/attributes.php",
+            "src-functions/Runtime/elements.php",
+            "src-functions/Runtime/text.php",
+            "src-functions/Runtime/urls.php"
         ]
     },
     "autoload-dev": {

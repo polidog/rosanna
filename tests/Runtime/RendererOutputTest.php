@@ -7,8 +7,14 @@ namespace Polidog\Rosanna\Tests\Runtime;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Polidog\Rosanna\Html\H;
+
+use function Polidog\Rosanna\Internal\Functions\Runtime\assertValidAttributeName;
+use function Polidog\Rosanna\Internal\Functions\Runtime\assertValidTagName;
+
+use Polidog\Rosanna\Runtime\AttributeNames;
 use Polidog\Rosanna\Runtime\Element;
 use Polidog\Rosanna\Runtime\Renderable;
+use Polidog\Rosanna\Runtime\Renderer;
 use Polidog\Rosanna\Runtime\RequestLifecycle;
 use Polidog\Rosanna\Tests\Runtime\Support\RendersInScope;
 
@@ -129,21 +135,17 @@ final class RendererOutputTest extends TestCase
         self::assertSame('&lt;x&gt;', self::html(static fn() => '<x>'));
     }
 
-    /** @return iterable<string, array{string}> */
-    public static function badTags(): iterable
+    /** 名前の列挙は tests/Internal/Functions/Runtime/ElementsTest.php */
+    public function testRT34InvalidTagNameThrows(): void
     {
-        yield 'space' => ['div onclick=x'];
-        yield 'angle' => ['a><script>'];
-        yield 'empty' => [''];
-        yield 'digit' => ['1a'];
-        yield 'newline' => ["div\n"];
-    }
-
-    #[DataProvider('badTags')]
-    public function testRT34InvalidTagNameThrows(string $tag): void
-    {
-        $this->expectException(\RuntimeException::class);
-        self::html(static fn() => new Element($tag));
+        foreach (['div onclick=x', "div\n"] as $tag) {
+            try {
+                self::html(static fn() => new Element($tag));
+                self::fail('Expected a refusal for ' . json_encode($tag));
+            } catch (\RuntimeException $e) {
+                self::assertStringContainsString('Invalid HTML tag name', $e->getMessage());
+            }
+        }
     }
 
     public function testRT34SvgAndCustomElementNamesPass(): void
@@ -170,10 +172,25 @@ final class RendererOutputTest extends TestCase
         ])));
     }
 
-    public function testRT37EveryMappedNamePassesTheAttributeGrammar(): void
+    /** 互換のために残した定数は、末尾の改行を除いて関数の検査と同じ名前を通す */
+    public function testDeprecatedNamePatternsAgreeWithTheChecks(): void
     {
-        foreach (\Polidog\Rosanna\Runtime\AttributeNames::MAP as $name) {
-            self::assertMatchesRegularExpression(\Polidog\Rosanna\Runtime\Renderer::ATTRIBUTE_NAME_PATTERN, $name);
+        foreach (['div', 'my-widget', 'linearGradient', '1a', 'a b', '', 'svg:rect'] as $tag) {
+            self::assertSame(preg_match(Renderer::TAG_NAME_PATTERN, $tag) === 1, self::passes(static fn() => assertValidTagName($tag)), $tag);
+        }
+        foreach (['data-x', 'xml:lang', '_x', 'a b', 'a=b', '', '1a', ...array_values(AttributeNames::MAP)] as $name) {
+            self::assertSame(preg_match(Renderer::ATTRIBUTE_NAME_PATTERN, $name) === 1, self::passes(static fn() => assertValidAttributeName($name)), $name);
+        }
+    }
+
+    private static function passes(\Closure $check): bool
+    {
+        try {
+            $check();
+
+            return true;
+        } catch (\RuntimeException) {
+            return false;
         }
     }
 

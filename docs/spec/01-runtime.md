@@ -169,7 +169,9 @@ namespace Polidog\Rosanna\Runtime;
 
 final class Renderer
 {
+    /** @deprecated 互換のために残している。検査には使わない (RT-3.4) */
     public const TAG_NAME_PATTERN = '/^[A-Za-z][A-Za-z0-9\-]*$/';
+    /** @deprecated 互換のために残している。検査には使わない (RT-3.8) */
     public const ATTRIBUTE_NAME_PATTERN = '/^[A-Za-z_:][A-Za-z0-9:_.\-]*$/';
 
     public function __construct(?RenderExtension $extension = null, ?DeferredRenderer $deferred = null);
@@ -187,7 +189,8 @@ interface RenderExtension
 }
 ```
 
-`new Renderer()` は引数なしで使える。ラッパーと snapshot の hidden を付ける `render()` と `renderPartial()` は状態層の `ComponentRenderer` にある (状態層の RT-9.5)。
+`new Renderer()` は引数なしで使える。状態に触らない検査と変換 (名前の検証、URL の検査、エスケープなど) は
+`src-functions/Runtime` の名前空間 `Polidog\Rosanna\Internal\Functions\Runtime` の関数にある。`@internal` で、公開 API ではない。rosanna シリーズ (polidog/rosanna-*) からは使ってよい。ラッパーと snapshot の hidden を付ける `render()` と `renderPartial()` は状態層の `ComponentRenderer` にある (状態層の RT-9.5)。
 
 ### エスケープ
 
@@ -212,7 +215,7 @@ interface RenderExtension
 
 ### タグ
 
-- **RT-3.4** タグ名は補間の前に `TAG_NAME_PATTERN` で検証し、違反は `RuntimeException` にする。要素を黙って落とさない
+- **RT-3.4** タグ名は補間の前に `/^[A-Za-z][A-Za-z0-9\-]*$/D` で検証し (`assertValidTagName`)、違反は `RuntimeException` にする。要素を黙って落とさない
   (`Renderer.php:784`)。
 - **RT-3.5** `area base br col embed hr img input link meta param source track wbr` は void 要素として `<tag ... />` で出力し、子を出さない。判定はタグ名を小文字にして行う。
 - **RT-3.6** 廃止 (2026-11-02)。`State\component()` は `Element` を返さず、`resolveRenderables` が展開する値を返すので、未解決の要素が Renderer に届くことはない。
@@ -222,7 +225,7 @@ interface RenderExtension
 - **RT-3.7** 属性名は JSX 名を変換してから検証する。対応表は `Renderer.php:118-272` と同じ内容を持つ
   (`className`→`class`、`htmlFor`→`for`、`tabIndex`→`tabindex`、`strokeWidth`→`stroke-width`、`xlinkHref`→`xlink:href` など)。
   表にない名前はそのまま使う。
-- **RT-3.8** 変換後の名前が `ATTRIBUTE_NAME_PATTERN` に合わなければ `RuntimeException`。`/^on[a-z]/i` に合えば、値の型を問わず
+- **RT-3.8** 変換後の名前が `/^[A-Za-z_:][A-Za-z0-9:_.\-]*$/D` に合わなければ (`assertValidAttributeName`) `RuntimeException`。`/^on[a-z]/i` に合えば、値の型を問わず
   `RuntimeException` (`Renderer.php:801`)。
 - **RT-3.9** 値の出力は次のとおり (`Renderer.php:695`)。
 
