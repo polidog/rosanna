@@ -22,53 +22,20 @@ final class SecurityHardeningTest extends TestCase
         RequestLifecycle::reset();
     }
 
-    /** @return iterable<string, array{string}> */
-    public static function dangerousUrls(): iterable
-    {
-        yield 'plain' => ['javascript:alert(1)'];
-        yield 'upper' => ['JAVASCRIPT:alert(1)'];
-        yield 'leading tab' => ["\tjavascript:alert(1)"];
-        yield 'inner tab' => ["java\tscript:alert(1)"];
-        yield 'inner newline' => ["java\nscript:alert(1)"];
-        yield 'inner cr' => ["java\rscript:alert(1)"];
-        yield 'leading space' => ['   javascript:alert(1)'];
-        yield 'leading control' => ["\x01\x1Fjavascript:alert(1)"];
-        yield 'leading nul' => ["\x00javascript:alert(1)"];
-        yield 'vbscript' => ['VbScript:x'];
-        yield 'data' => ['data:text/html,<script>alert(1)</script>'];
-        yield 'tab before colon' => ["javascript\t:alert(1)"];
-    }
-
-    #[DataProvider('dangerousUrls')]
-    public function testRT311DangerousSchemesDropOnlyTheAttribute(string $url): void
+    /** スキームの判定の列挙は tests/Internal/Functions/Runtime/UrlsTest.php。ここは属性名の経路を見る */
+    public function testRT311DangerousSchemesDropOnlyTheAttribute(): void
     {
         foreach (['href', 'HREF', 'src', 'action', 'formaction', 'formAction', 'data', 'poster', 'background', 'xlink:href', 'xlinkHref', 'XLINK:HREF'] as $name) {
-            self::assertSame('<a id="i"></a>', self::html(static fn() => new Element('a', ['id' => 'i', $name => $url])), $name);
+            foreach (['javascript:alert(1)', "java\tscript:alert(1)"] as $url) {
+                self::assertSame('<a id="i"></a>', self::html(static fn() => new Element('a', ['id' => 'i', $name => $url])), $name);
+            }
         }
     }
 
-    /** @return iterable<string, array{string}> */
-    public static function harmlessUrls(): iterable
+    public function testRT311HarmlessUrlsAreEmittedEscaped(): void
     {
-        yield 'https' => ['https://example.com/?a=1&b=2'];
-        yield 'relative' => ['/path:with/colon'];
-        yield 'path colon' => ['foo/bar:baz'];
-        yield 'query colon' => ['?javascript:alert(1)'];
-        yield 'fragment' => ['#javascript:x'];
-        yield 'bad scheme' => ['java script:alert(1)'];
-        yield 'leading colon' => [':javascript'];
-        yield 'mailto' => ['mailto:a@example.com'];
-        yield 'empty' => [''];
-        yield 'tab is kept' => ["/a\tb"];
-    }
-
-    #[DataProvider('harmlessUrls')]
-    public function testRT311HarmlessUrlsAreEmittedUnchanged(string $url): void
-    {
-        self::assertSame(
-            '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"></a>',
-            self::html(static fn() => H::a(href: $url)),
-        );
+        self::assertSame('<a href="https://example.com/?a=1&amp;b=2"></a>', self::html(static fn() => H::a(href: 'https://example.com/?a=1&b=2')));
+        self::assertSame('<a href="#javascript:x"></a>', self::html(static fn() => H::a(href: '#javascript:x')));
     }
 
     public function testRT311OtherAttributesAreNotInspected(): void
@@ -143,23 +110,17 @@ final class SecurityHardeningTest extends TestCase
         self::assertSame('<style><b></style>', $renderer->renderElement(new Element('style', [], ['<b>'])));
     }
 
-    /** @return iterable<string, array{string}> */
-    public static function badAttributeNames(): iterable
+    /** 名前の列挙は tests/Internal/Functions/Runtime/AttributesTest.php。ここは変換の後に検査することを見る */
+    public function testRT38InvalidAttributeNameThrows(): void
     {
-        yield 'quote and space' => ['a" onclick="x'];
-        yield 'angle' => ['a>'];
-        yield 'whitespace' => ['a b'];
-        yield 'equals' => ['a=b'];
-        yield 'slash' => ['a/b'];
-        yield 'empty' => [''];
-        yield 'trailing newline' => ["a\n"];
-    }
-
-    #[DataProvider('badAttributeNames')]
-    public function testRT38InvalidAttributeNameThrows(string $name): void
-    {
-        $this->expectException(\RuntimeException::class);
-        self::html(static fn() => new Element('div', [$name => 'x']));
+        foreach (['a" onclick="x', "a\n"] as $name) {
+            try {
+                self::html(static fn() => new Element('div', [$name => 'x']));
+                self::fail('Expected a refusal for ' . json_encode($name));
+            } catch (\RuntimeException $e) {
+                self::assertStringContainsString('Invalid HTML attribute name', $e->getMessage());
+            }
+        }
     }
 
     /** @return iterable<string, array{string, mixed}> */

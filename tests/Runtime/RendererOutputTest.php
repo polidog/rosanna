@@ -129,21 +129,17 @@ final class RendererOutputTest extends TestCase
         self::assertSame('&lt;x&gt;', self::html(static fn() => '<x>'));
     }
 
-    /** @return iterable<string, array{string}> */
-    public static function badTags(): iterable
+    /** 名前の列挙は tests/Internal/Functions/Runtime/ElementsTest.php */
+    public function testRT34InvalidTagNameThrows(): void
     {
-        yield 'space' => ['div onclick=x'];
-        yield 'angle' => ['a><script>'];
-        yield 'empty' => [''];
-        yield 'digit' => ['1a'];
-        yield 'newline' => ["div\n"];
-    }
-
-    #[DataProvider('badTags')]
-    public function testRT34InvalidTagNameThrows(string $tag): void
-    {
-        $this->expectException(\RuntimeException::class);
-        self::html(static fn() => new Element($tag));
+        foreach (['div onclick=x', "div\n"] as $tag) {
+            try {
+                self::html(static fn() => new Element($tag));
+                self::fail('Expected a refusal for ' . json_encode($tag));
+            } catch (\RuntimeException $e) {
+                self::assertStringContainsString('Invalid HTML tag name', $e->getMessage());
+            }
+        }
     }
 
     public function testRT34SvgAndCustomElementNamesPass(): void
