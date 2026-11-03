@@ -30,6 +30,8 @@
             "src-functions/Runtime/elements.php",
             "src-functions/Runtime/text.php",
             "src-functions/Runtime/urls.php",
+            "src-functions/Runtime/files.php",
+            "src-functions/Runtime/traces.php",
             "src-functions/Psx/edits.php",
             "src-functions/Psx/lowering.php",
             "src-functions/Psx/types.php",

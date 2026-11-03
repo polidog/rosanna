@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\Runtime;
 
+use function Polidog\Rosanna\Internal\Functions\Runtime\readArrayFile;
+use function Polidog\Rosanna\Internal\Functions\Runtime\requireIsolated;
+
 /**
  * 生成コードから呼ばれる PSX コンポーネントの入口 (RT-11)。コンパイラに依存しない。
  * リクエストごとの情報を持たないので、Rosanna の間で使い回せる。
@@ -53,7 +56,7 @@ final class PsxRenderer
      */
     public function loadManifest(string $path): void
     {
-        foreach (self::readArrayFile($path) as $fqcn => $entry) {
+        foreach (readArrayFile($path) as $fqcn => $entry) {
             if ($fqcn === self::BUILD_ID_KEY) {
                 continue;
             }
@@ -73,7 +76,7 @@ final class PsxRenderer
      */
     public static function readBuildId(string $path): ?string
     {
-        $buildId = self::readArrayFile($path)[self::BUILD_ID_KEY] ?? null;
+        $buildId = readArrayFile($path)[self::BUILD_ID_KEY] ?? null;
 
         return is_string($buildId) ? $buildId : null;
     }
@@ -115,7 +118,7 @@ final class PsxRenderer
         }
 
         try {
-            $component = self::requireIsolated($file);
+            $component = requireIsolated($file);
         } catch (\ParseError $e) {
             throw new \RuntimeException(
                 "Compiled PSX file is invalid PHP: {$file}. Run `vendor/bin/rosanna compile` to regenerate. ({$e->getMessage()})",
@@ -155,28 +158,6 @@ final class PsxRenderer
      */
     public static function readArrayFile(string $path): array
     {
-        if (!is_file($path) || !is_readable($path)) {
-            throw new \RuntimeException("PSX manifest not found: {$path}. Run `vendor/bin/rosanna compile` to generate it.");
-        }
-
-        try {
-            $data = self::requireIsolated($path);
-        } catch (\ParseError $e) {
-            throw new \RuntimeException("PSX manifest is invalid PHP: {$path}. ({$e->getMessage()})", previous: $e);
-        }
-
-        if (!is_array($data)) {
-            throw new \RuntimeException("PSX manifest did not return an array: {$path}. Run `vendor/bin/rosanna compile` to regenerate.");
-        }
-
-        return $data;
-    }
-
-    /** メソッドの中で require すると、ファイルのクロージャがこのクラスのスコープを持つので外す */
-    private static function requireIsolated(string $path): mixed
-    {
-        $require = \Closure::bind(static fn(string $__path): mixed => require $__path, null, null);
-
-        return $require($path);
+        return readArrayFile($path);
     }
 }
