@@ -8,14 +8,16 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 use function Polidog\Rosanna\Internal\Functions\Runtime\assertValidAttributeName;
+use function Polidog\Rosanna\Internal\Functions\Runtime\attributeName;
 use function Polidog\Rosanna\Internal\Functions\Runtime\firstProp;
 use function Polidog\Rosanna\Internal\Functions\Runtime\isBooleanStringAttribute;
 use function Polidog\Rosanna\Internal\Functions\Runtime\isUrlAttribute;
+use function Polidog\Rosanna\Internal\Functions\Runtime\selectValues;
 use function Polidog\Rosanna\Internal\Functions\Runtime\targetsHref;
 
 use Polidog\Rosanna\Runtime\AttributeNames;
 
-/** RT-3.7、RT-3.8、RT-3.9、RT-3.11 */
+/** RT-3.7、RT-3.8、RT-3.9、RT-3.11、RT-3.17 */
 final class AttributesTest extends TestCase
 {
     /** @return iterable<string, array{string}> */
@@ -108,5 +110,70 @@ final class AttributesTest extends TestCase
         self::assertSame('a', firstProp(['Value' => 'a', 'value' => 'b'], 'value'));
         self::assertSame('b', firstProp(['VALUE' => null, 'value' => 'b'], 'value'));
         self::assertNull(firstProp(['other' => 'x'], 'value'));
+    }
+
+    /** 互換のために残した AttributeNames::MAP と同じ対応を持つ */
+    public function testAttributeNameAgreesWithTheDeprecatedMap(): void
+    {
+        foreach (AttributeNames::MAP as $jsx => $html) {
+            self::assertSame($html, attributeName($jsx), $jsx);
+            // 変換した名前をもう一度通しても変わらない
+            self::assertSame($html, attributeName($html), $html);
+        }
+    }
+
+    public function testAttributeNameKeepsNamesNotInTheTable(): void
+    {
+        foreach (['class', 'data-x', 'aria-label', 'viewBox', 'unknownName', 'classname', 'CLASSNAME', ''] as $name) {
+            self::assertSame($name, attributeName($name), $name);
+        }
+    }
+
+    /** @return iterable<string, array{mixed, list<string>}> */
+    public static function selectValueCases(): iterable
+    {
+        yield 'string' => ['b', ['b']];
+        yield 'empty string' => ['', ['']];
+        yield 'int' => [1, ['1']];
+        yield 'zero' => [0, ['0']];
+        yield 'float' => [1.5, ['1.5']];
+        yield 'null' => [null, []];
+        yield 'true' => [true, []];
+        yield 'false' => [false, []];
+        yield 'array' => [[1, 'b'], ['1', 'b']];
+        yield 'empty array' => [[], []];
+        yield 'duplicates' => [['1', 1], ['1']];
+        yield 'null and bool in array' => [['a', null, true, false], ['a']];
+    }
+
+    /** @param list<string> $expected */
+    #[DataProvider('selectValueCases')]
+    public function testSelectValues(mixed $value, array $expected): void
+    {
+        self::assertSame($expected, array_map(strval(...), array_keys(selectValues($value))));
+    }
+
+    public function testSelectValuesDropsNonScalarValuesWithANotice(): void
+    {
+        $notices = [];
+        set_error_handler(static function (int $level, string $message) use (&$notices): bool {
+            $notices[] = [$level, $message];
+
+            return true;
+        });
+        try {
+            $single = selectValues(new \stdClass());
+            $inArray = selectValues(['a', ['b'], new \stdClass()]);
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame([], $single);
+        self::assertSame(['a' => true], $inArray);
+        self::assertSame([
+            [E_USER_NOTICE, 'Non-scalar value for attribute "value" (stdClass) was dropped.'],
+            [E_USER_NOTICE, 'Non-scalar value for attribute "value" (array) was dropped.'],
+            [E_USER_NOTICE, 'Non-scalar value for attribute "value" (stdClass) was dropped.'],
+        ], $notices);
     }
 }

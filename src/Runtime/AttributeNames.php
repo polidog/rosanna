@@ -8,9 +8,12 @@ namespace Polidog\Rosanna\Runtime;
  * JSX の属性名から HTML と SVG の属性名への対応 (RT-3.7)。表にない名前はそのまま使う。
  *
  * @internal
+ * @deprecated 互換のために残している。変換には使っておらず、Renderer は同じ表を持つ
+ *             Internal\Functions\Runtime\attributeName() で変換する
  */
 final class AttributeNames
 {
+    /** @deprecated 互換のために残している。Internal\Functions\Runtime\attributeName() と同じ対応を持つ */
     public const MAP = [
         'acceptCharset' => 'accept-charset',
         'accessKey' => 'accesskey',

@@ -7,6 +7,7 @@ namespace Polidog\Rosanna\Runtime;
 use function Polidog\Rosanna\Html\resolveRenderables;
 use function Polidog\Rosanna\Internal\Functions\Runtime\assertValidAttributeName;
 use function Polidog\Rosanna\Internal\Functions\Runtime\assertValidTagName;
+use function Polidog\Rosanna\Internal\Functions\Runtime\attributeName;
 use function Polidog\Rosanna\Internal\Functions\Runtime\collapseWhitespace;
 use function Polidog\Rosanna\Internal\Functions\Runtime\escape;
 use function Polidog\Rosanna\Internal\Functions\Runtime\firstProp;
@@ -21,6 +22,8 @@ use function Polidog\Rosanna\Internal\Functions\Runtime\isTextOnlyAncestor;
 use function Polidog\Rosanna\Internal\Functions\Runtime\isUrlAttribute;
 use function Polidog\Rosanna\Internal\Functions\Runtime\isVoidTag;
 use function Polidog\Rosanna\Internal\Functions\Runtime\joinRawText;
+use function Polidog\Rosanna\Internal\Functions\Runtime\resolveDeep;
+use function Polidog\Rosanna\Internal\Functions\Runtime\selectValues;
 use function Polidog\Rosanna\Internal\Functions\Runtime\targetsHref;
 use function Polidog\Rosanna\Internal\Functions\Runtime\textOf;
 
@@ -112,7 +115,7 @@ final class Renderer
         // RT-3.17 差し替え口にも解決した props を渡す。子はこの呼び出しの中で描画されるので、終わったら戻す
         $outerSelectValues = $this->selectValues;
         if ($lowerTag === 'select') {
-            $this->selectValues = self::selectValues(firstProp($element->props, 'value'));
+            $this->selectValues = selectValues(firstProp($element->props, 'value'));
             $element = $element->withProps(array_filter($element->props, static fn(int|string $name): bool => strcasecmp((string) $name, 'value') !== 0, ARRAY_FILTER_USE_KEY));
         } elseif ($lowerTag === 'option' && $this->selectValues !== [] && firstProp($element->props, 'selected') === null) {
             $element = $this->markIfSelected($element);
@@ -144,34 +147,12 @@ final class Renderer
             : "<{$tag}{$attributes}>{$this->renderContent($lowerTag, $element->children)}</{$tag}>";
     }
 
-    /**
-     * select の value を、比べる文字列の集合にする。文字列にするのは属性の出力と同じ。bool は option の値にならないので何も選ばない。
-     *
-     * @return array<array-key, true>
-     */
-    private static function selectValues(mixed $value): array
-    {
-        $values = [];
-        foreach (is_array($value) ? $value : [$value] as $item) {
-            if ($item === null || is_bool($item)) {
-                continue;
-            }
-            if (!is_scalar($item)) {
-                trigger_error(sprintf('Non-scalar value for attribute "value" (%s) was dropped.', get_debug_type($item)), E_USER_NOTICE);
-                continue;
-            }
-            $values[(string) $item] = true;
-        }
-
-        return $values;
-    }
-
     private function markIfSelected(Element $option): Element
     {
         $value = firstProp($option->props, 'value');
         if (!is_scalar($value) || $value === false) {
             // value 属性が出ない option の値はテキスト。調べるときに解決した子を描画にも使い、2 回解決しない
-            $option = $option->withChildren(self::resolveDeep($option->children));
+            $option = $option->withChildren(resolveDeep($option->children));
             $value = collapseWhitespace(textOf($option->children));
         }
 
@@ -179,18 +160,6 @@ final class Renderer
         $key = $value === true ? '' : (string) $value;
 
         return isset($this->selectValues[$key]) ? $option->withProps([...$option->props, 'selected' => true]) : $option;
-    }
-
-    /**
-     * @param array<mixed> $children
-     * @return list<mixed>
-     */
-    private static function resolveDeep(array $children): array
-    {
-        return array_map(
-            static fn(mixed $child): mixed => $child instanceof Element ? $child->withChildren(self::resolveDeep($child->children)) : $child,
-            resolveRenderables($children),
-        );
     }
 
     /** @param array<string, mixed> $props */
@@ -201,7 +170,7 @@ final class Renderer
 
         foreach ($props as $key => $value) {
             $key = (string) $key;
-            $name = AttributeNames::MAP[$key] ?? $key;
+            $name = attributeName($key);
             assertValidAttributeName($name);
             $lowerName = strtolower($name);
 

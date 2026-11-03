@@ -52,10 +52,6 @@ final class SelectValueTest extends TestCase
             '<select><option value="1" selected></option></select>',
             self::html(H::select(value: '1', children: H::option(value: 1))),
         );
-        self::assertSame(
-            '<select><option value="1.5" selected></option></select>',
-            self::html(H::select(value: 1.5, children: H::option(value: '1.5'))),
-        );
         // PHP の緩い比較なら合ってしまう組み合わせ
         self::assertSame(
             '<select><option value="1e1"></option><option value="abc"></option></select>',
@@ -156,14 +152,6 @@ final class SelectValueTest extends TestCase
         self::assertSame(
             '<select multiple><option value="1" selected></option><option value="2"></option><option value="b" selected></option></select>',
             self::html(H::select(multiple: true, value: [1, 'b'], children: [H::option(value: '1'), H::option(value: '2'), H::option(value: 'b')])),
-        );
-    }
-
-    public function testRT317EmptyArraySelectsNothing(): void
-    {
-        self::assertSame(
-            '<select multiple><option value="a"></option></select>',
-            self::html(H::select(multiple: true, value: [], children: H::option(value: 'a'))),
         );
     }
 
@@ -284,15 +272,12 @@ final class SelectValueTest extends TestCase
         self::assertSame('<option value="b"></option>', $renderer->renderElement(H::option(value: 'b')));
     }
 
+    /** 値の列挙は tests/Internal/Functions/Runtime/AttributesTest.php の testSelectValues で見る */
     public function testRT317BoolValueSelectsNothing(): void
     {
         self::assertSame(
             '<select><option value="1"></option><option value=""></option></select>',
             self::html(new Element('select', ['value' => true], [new Element('option', ['value' => '1']), new Element('option', ['value' => ''])])),
-        );
-        self::assertSame(
-            '<select><option value=""></option></select>',
-            self::html(new Element('select', ['value' => false], [new Element('option', ['value' => ''])])),
         );
     }
 
@@ -305,18 +290,13 @@ final class SelectValueTest extends TestCase
             return true;
         });
         try {
-            $single = self::html(new Element('select', ['value' => new \stdClass()], [new Element('option', ['value' => 'a'])]));
-            $inArray = self::html(H::select(multiple: true, value: ['a', ['b']], children: [H::option(value: 'a'), H::option(value: 'b')]));
+            $html = self::html(H::select(multiple: true, value: ['a', ['b']], children: [H::option(value: 'a'), H::option(value: 'b')]));
         } finally {
             restore_error_handler();
         }
 
-        self::assertSame('<select><option value="a"></option></select>', $single);
-        self::assertSame('<select multiple><option value="a" selected></option><option value="b"></option></select>', $inArray);
-        self::assertSame([
-            [E_USER_NOTICE, 'Non-scalar value for attribute "value" (stdClass) was dropped.'],
-            [E_USER_NOTICE, 'Non-scalar value for attribute "value" (array) was dropped.'],
-        ], $notices);
+        self::assertSame('<select multiple><option value="a" selected></option><option value="b"></option></select>', $html);
+        self::assertSame([[E_USER_NOTICE, 'Non-scalar value for attribute "value" (array) was dropped.']], $notices);
     }
 
     /** rosanna-state の ActionFormExtension と同じく、渡されたクロージャで描画する */

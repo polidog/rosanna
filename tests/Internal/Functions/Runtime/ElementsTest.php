@@ -12,8 +12,12 @@ use function Polidog\Rosanna\Internal\Functions\Runtime\isForeignContentRoot;
 use function Polidog\Rosanna\Internal\Functions\Runtime\isRawTextTag;
 use function Polidog\Rosanna\Internal\Functions\Runtime\isTextOnlyAncestor;
 use function Polidog\Rosanna\Internal\Functions\Runtime\isVoidTag;
+use function Polidog\Rosanna\Internal\Functions\Runtime\resolveDeep;
 
-/** RT-3.4、RT-3.5、RT-3.12、RT-3.14 */
+use Polidog\Rosanna\Runtime\Element;
+use Polidog\Rosanna\Runtime\Renderable;
+
+/** RT-3.4、RT-3.5、RT-3.12、RT-3.14、RT-3.17 */
 final class ElementsTest extends TestCase
 {
     /** @return iterable<string, array{string}> */
@@ -63,5 +67,28 @@ final class ElementsTest extends TestCase
         self::assertTrue(isForeignContentRoot('svg'));
         self::assertTrue(isForeignContentRoot('math'));
         self::assertFalse(isForeignContentRoot('div'));
+    }
+
+    public function testResolveDeepResolvesDescendantsOnce(): void
+    {
+        $count = 0;
+        $renderable = new class ($count) implements Renderable {
+            public function __construct(private int &$count) {}
+
+            public function render(): Element
+            {
+                $this->count++;
+
+                return new Element('i', [], ['x']);
+            }
+        };
+
+        $resolved = resolveDeep(['a', [1, null], new Element('b', [], [[$renderable], new Element('c', [], [$renderable])])]);
+
+        self::assertEquals(
+            ['a', 1, null, new Element('b', [], [new Element('i', [], ['x']), new Element('c', [], [new Element('i', [], ['x'])])])],
+            $resolved,
+        );
+        self::assertSame(2, $count);
     }
 }
