@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Polidog\Rosanna\Psx;
 
+use function Polidog\Rosanna\Internal\Functions\Runtime\isRawTextTag;
+
 use Polidog\Rosanna\Psx\Ast\PsxAttribute;
 use Polidog\Rosanna\Psx\Ast\PsxCode;
 use Polidog\Rosanna\Psx\Ast\PsxElement;
@@ -18,9 +20,6 @@ use Polidog\Rosanna\Psx\Ast\PsxText;
  */
 final class PsxParser
 {
-    /** CP-55 */
-    private const array RAW_TEXT_TAGS = ['style', 'script'];
-
     /** CP-64 */
     private const array DEFER_NON_STRING_ATTRIBUTES = ['localCache', 'reloadable', 'localCacheTtl'];
 
@@ -58,7 +57,8 @@ final class PsxParser
             $element = new PsxElement($name, $attributes, [], $start);
         } else {
             $this->expect('>');
-            $children = \in_array($name, self::RAW_TEXT_TAGS, true)
+            // CP-55 小文字の style と script だけ。isRawTextTag は小文字で比べるので、名前をそのまま渡す
+            $children = isRawTextTag($name)
                 ? $this->readRawText($name)
                 : $this->parseChildren();
             $this->consumeClosingTag($name);
