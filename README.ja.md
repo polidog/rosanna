@@ -13,7 +13,7 @@ Rosanna はルーターも DI もイベントも持たず、HTTP を知りませ
 **hooks と、サーバーを通して動くボタンやフォーム (`fc()`、`useState`、`onClick`) を使うには [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state) を足します。遅延読み込み (`<defer>`) だけなら [`polidog/rosanna-defer`](https://github.com/polidog/rosanna-defer) で足ります。** [状態を足す](#状態を足す)を見てください。
 
 - PHP 8.5 以上と `mbstring` 拡張。`polidog/rosanna` は PSX のコンパイラのために `nikic/php-parser` を必要とします。描画では読み込みません。
-- 現在の版は v0.0.1 です。Composer の `^0.0.1` は 0.0.1 だけに一致します。
+- 現在の版は v1.0.0 です。
 
 ## インストール
 

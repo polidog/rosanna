@@ -13,7 +13,7 @@ Rosanna has no router, no DI and no events, and it knows nothing about HTTP. Cho
 **For hooks, buttons and forms that work through the server (`fc()`, `useState`, `onClick`), add [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state). For deferred fragments (`<defer>`) alone, [`polidog/rosanna-defer`](https://github.com/polidog/rosanna-defer) is enough.** See [Adding state](#adding-state).
 
 - PHP 8.5+ with the `mbstring` extension. `polidog/rosanna` requires `nikic/php-parser` for the PSX compiler. Rendering does not load it.
-- The current version is v0.0.1. Composer's `^0.0.1` matches 0.0.1 only.
+- The current version is v1.0.0.
 
 ## Installation
 
