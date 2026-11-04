@@ -3,7 +3,7 @@
 PSX は、PHP のファイルの中に HTML のようにタグを書ける構文です。Rosanna と PSX の関係は React と JSX の関係と同じで、
 `polidog/rosanna` のコンパイラが `.psx` を PHP に変換します。変換後のコードの描画では、コンパイラも `nikic/php-parser` も読み込みません。
 
-この文書は v0.0.1 の PSX を説明します。
+この文書は v1.0.0 の PSX を説明します。
 
 コンパイラは本体の `polidog/rosanna` にあります。`fc()`、`useState`、`onClick` は [`polidog/rosanna-state`](https://github.com/polidog/rosanna-state)、`<defer>` の描画は [`polidog/rosanna-defer`](https://github.com/polidog/rosanna-defer) のものです。状態のないコンポーネントは `return fn (array $props) => <div />;` で書けます。
 ```php
